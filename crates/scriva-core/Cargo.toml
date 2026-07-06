@@ -1,6 +1,6 @@
 [package]
-name = "voiceflow-core"
-description = "Platform-independent core for VoiceFlow: provider traits + adapters, audio processing, settings model."
+name = "scriva-core"
+description = "Platform-independent core for Scriva: provider traits + adapters, audio processing, settings model."
 version.workspace = true
 authors.workspace = true
 license.workspace = true

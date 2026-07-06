@@ -67,7 +67,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) {
             // Float above native-fullscreen apps (once, at creation).
             raise_above_fullscreen(&window);
         }
-        Err(e) => eprintln!("[voiceflow] overlay window build failed: {e}"),
+        Err(e) => eprintln!("[scriva] overlay window build failed: {e}"),
     }
 }
 

@@ -1,10 +1,10 @@
-# VoiceFlow
+# Scriva
 
 **Open-source voice dictation for macOS. Your keys, your models, your data.**
 
 Hold a hotkey, speak, release — your words are transcribed and typed into
 whatever app has focus: email, chat, your code editor, anywhere a text cursor
-lives. VoiceFlow runs quietly in the menu bar; there's no window to type into
+lives. Scriva runs quietly in the menu bar; there's no window to type into
 and no dock icon.
 
 It's a community alternative to commercial dictation apps like Wispr Flow,
@@ -36,14 +36,14 @@ Requirements: macOS 11+, [Rust](https://rustup.rs), Node.js, and at least one
 API key (a free [Groq](https://console.groq.com) key is the fastest way in).
 
 ```sh
-git clone <this repo> && cd open-wispr
+git clone <this repo> && cd scriva
 npm install
 npm run tauri dev
 ```
 
 Then:
 
-1. Click the VoiceFlow icon in the menu bar → **Settings…**
+1. Click the Scriva icon in the menu bar → **Settings…**
 2. Paste your Groq (or OpenAI) key and hit **Test** — you'll get an immediate
    ✓ or a plain-English error.
 3. Grant **Microphone** access when macOS asks (first recording).
@@ -89,7 +89,7 @@ Typical daily dictation use costs pennies per month.
 - **M5:** Windows and Linux.
 
 Adding a new AI provider is designed to be trivial: one adapter file + one
-registry line (`crates/voiceflow-core/src/providers/`). PRs welcome.
+registry line (`crates/scriva-core/src/providers/`). PRs welcome.
 
 ## License
 

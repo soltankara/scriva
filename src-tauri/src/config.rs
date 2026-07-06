@@ -4,7 +4,7 @@
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::StoreExt;
 
-pub use voiceflow_core::settings::{effective_key, Settings};
+pub use scriva_core::settings::{effective_key, Settings};
 
 /// Store file in the app data dir. M2 upgrade: move API keys into the macOS
 /// Keychain; for M1 they live in this plain-JSON store (never logged).

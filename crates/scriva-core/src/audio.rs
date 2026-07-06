@@ -46,7 +46,7 @@ pub fn to_wav_16k_mono(audio: &RecordedAudio) -> Option<Vec<u8>> {
     if rms < SILENCE_RMS {
         let peak = mono.iter().fold(0.0f32, |m, s| m.max(s.abs()));
         eprintln!(
-            "[voiceflow] audio RMS {rms:.6} peak {peak:.6} below silence threshold {SILENCE_RMS} — treating as silent"
+            "[scriva] audio RMS {rms:.6} peak {peak:.6} below silence threshold {SILENCE_RMS} — treating as silent"
         );
         return None;
     }

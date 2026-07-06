@@ -1,5 +1,5 @@
 [package]
-name = "voiceflow"
+name = "scriva"
 version = "0.1.0"
 description = "Open-source, bring-your-own-key voice dictation. Hold a hotkey, speak, release."
 authors = ["Soltan Garayev"]
@@ -7,14 +7,14 @@ license = "MIT"
 edition = "2021"
 
 [lib]
-name = "voiceflow_lib"
+name = "scriva_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-voiceflow-core = { path = "../crates/voiceflow-core" }
+scriva-core = { path = "../crates/scriva-core" }
 tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-store = "2"

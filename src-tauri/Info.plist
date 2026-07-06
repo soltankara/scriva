@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>com.voiceflow.app</string>
+	<string>com.scriva.app</string>
 	<key>CFBundleName</key>
-	<string>VoiceFlow</string>
+	<string>Scriva</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>VoiceFlow records your microphone while you hold the dictation hotkey.</string>
+	<string>Scriva records your microphone while you hold the dictation hotkey.</string>
 	<key>LSUIElement</key>
 	<true/>
 </dict>

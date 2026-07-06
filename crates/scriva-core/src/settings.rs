@@ -61,18 +61,18 @@ impl Default for Settings {
 
 /// Resolve the API key actually used for a provider.
 ///
-/// In debug builds, a non-empty `OPENWISPR_*` env var (loaded from a dev-only
+/// In debug builds, a non-empty `SCRIVA_*` env var (loaded from a dev-only
 /// `.env`) overrides the stored key so the pipeline can be iterated without
-/// re-typing keys. `OPENWISPR_OPENAI_KEY` serves both OpenAI layers. In release
+/// re-typing keys. `SCRIVA_OPENAI_KEY` serves both OpenAI layers. In release
 /// builds env vars are ignored — keys come only from the store.
 pub fn effective_key(settings: &Settings, provider: &str) -> String {
     #[cfg(debug_assertions)]
     {
         let env_var = match provider {
-            "groq" => Some("OPENWISPR_GROQ_KEY"),
-            "openai" => Some("OPENWISPR_OPENAI_KEY"),
-            "claude" => Some("OPENWISPR_CLAUDE_KEY"),
-            "gemini" => Some("OPENWISPR_GEMINI_KEY"),
+            "groq" => Some("SCRIVA_GROQ_KEY"),
+            "openai" => Some("SCRIVA_OPENAI_KEY"),
+            "claude" => Some("SCRIVA_CLAUDE_KEY"),
+            "gemini" => Some("SCRIVA_GEMINI_KEY"),
             _ => None,
         };
         if let Some(var) = env_var {

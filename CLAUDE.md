@@ -1,4 +1,4 @@
-# VoiceFlow (open-wispr)
+# Scriva
 
 Open-source, bring-your-own-key voice dictation for macOS. Hold a global hotkey,
 speak, release — speech is transcribed and typed into whatever app has focus.
@@ -42,7 +42,7 @@ model to `""`.
 ## Architecture invariants (do not break)
 
 1. `Transcriber` and `Cleaner` traits + factories live in
-   `crates/voiceflow-core/src/providers/mod.rs`. One adapter file per provider.
+   `crates/scriva-core/src/providers/mod.rs`. One adapter file per provider.
    **Adding a provider = one new adapter file + one factory line. Nothing else.**
 2. **Claude is cleanup-only.** Anthropic has no speech-to-text API. Claude must
    never appear in the transcription factory or any transcription dropdown.
@@ -53,15 +53,15 @@ model to `""`.
    ("Groq returned 401 — API key rejected"). Never fail silently.
 5. **No secret/transcript leakage.** No logging of API keys, audio, or
    transcripts — even in debug builds. `Settings` has no `Debug` derive.
-   `.env` is dev-only (debug builds), git-ignored; vars: `OPENWISPR_GROQ_KEY`,
-   `OPENWISPR_OPENAI_KEY` (both OpenAI layers), `OPENWISPR_CLAUDE_KEY`,
-   `OPENWISPR_GEMINI_KEY`. Env values override stored settings in dev.
+   `.env` is dev-only (debug builds), git-ignored; vars: `SCRIVA_GROQ_KEY`,
+   `SCRIVA_OPENAI_KEY` (both OpenAI layers), `SCRIVA_CLAUDE_KEY`,
+   `SCRIVA_GEMINI_KEY`. Env values override stored settings in dev.
 6. `src/` is vanilla HTML/CSS/JS rendered in the Tauri webview. **No build
    step** (no Vite/webpack/Node deps). JS reaches Rust via
    `window.__TAURI__.core.invoke` (`withGlobalTauri: true`).
 7. Cleanup LLM system prompt is prompt-injection hardened: transcript is text
    to format, never instructions to follow; output cleaned text only.
-8. **`voiceflow-core` never depends on `tauri`**, any `tauri-plugin-*`, `cpal`,
+8. **`scriva-core` never depends on `tauri`**, any `tauri-plugin-*`, `cpal`,
    or OS frameworks. It is the platform-independent core that future iOS
    (UniFFI) and Windows shells reuse: provider layer, audio processing
    (`to_wav_16k_mono`), settings model. Platform concerns — capture, injection,
@@ -87,7 +87,7 @@ Rust → UI events: `recording-state` (bool) and `pipeline-error` (string).
 ## Agent delegation
 
 - **`tauri` subagent** (`.claude/agents/tauri.md`, runs on Opus 4.8): anything
-  touching `src-tauri/`, `crates/voiceflow-core/`, `tauri.conf.json`,
+  touching `src-tauri/`, `crates/scriva-core/`, `tauri.conf.json`,
   `Info.plist`, capabilities, global shortcuts, tray, IPC commands, provider
   adapters, audio capture, text injection, permissions.
 - **Not the tauri agent:** pure HTML/CSS/JS work on `src/index.html`, README,
@@ -99,7 +99,7 @@ Rust → UI events: `recording-state` (bool) and `pipeline-error` (string).
 npm install            # once; installs @tauri-apps/cli
 npm run tauri dev      # run the app from source
 cargo check            # fast compile gate (repo root; covers core + shell)
-cargo test -p voiceflow-core   # core unit tests (audio processing)
+cargo test -p scriva-core   # core unit tests (audio processing)
 ```
 
 ## macOS gotchas

@@ -1,4 +1,4 @@
-# VoiceFlow — Project Description & Build Spec
+# Scriva — Project Description & Build Spec
 
 > This document is the source of truth for the project. It is written to be fed
 > to AI build tools (Claude Code, Claude Design, Google Stitch) so they share a
@@ -10,7 +10,7 @@
 
 ## 1. What this project is
 
-VoiceFlow is an **open-source voice dictation tool**. The user holds a hotkey,
+Scriva is an **open-source voice dictation tool**. The user holds a hotkey,
 speaks, releases, and their speech is transcribed and typed into whatever
 application currently has focus — email, chat, code editor, browser, anywhere a
 text cursor lives. It runs quietly in the background as a menu-bar / tray
@@ -307,15 +307,15 @@ key-invalid (with the actual error text), saved, and "permission not granted."
 ## 8. Repository layout (current scaffold)
 
 ```
-voiceflow/
+scriva/
 ├── README.md
 ├── PROJECT.md                 ← this file
 ├── LICENSE                    ← MIT, Soltan Garayev
 ├── package.json               ← Tauri CLI + dev scripts
 ├── .env.example               ← dev-only config overrides
-├── Cargo.toml                 ← workspace root (voiceflow-core + src-tauri)
+├── Cargo.toml                 ← workspace root (scriva-core + src-tauri)
 ├── crates/
-│   └── voiceflow-core/        ← platform-independent core (no tauri/cpal/OS deps);
+│   └── scriva-core/        ← platform-independent core (no tauri/cpal/OS deps);
 │       ├── Cargo.toml            future iOS (UniFFI) and Windows shells reuse it
 │       └── src/
 │           ├── lib.rs
@@ -347,5 +347,5 @@ voiceflow/
 ```
 
 The provider trait files and the two interfaces in
-`crates/voiceflow-core/src/providers/mod.rs` are the architectural backbone —
+`crates/scriva-core/src/providers/mod.rs` are the architectural backbone —
 preserve that shape as the project grows.

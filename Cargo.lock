@@ -3253,6 +3253,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "scriva"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "core-foundation",
+ "core-graphics 0.24.0",
+ "cpal",
+ "dotenvy",
+ "objc2",
+ "scriva-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-opener",
+ "tauri-plugin-store",
+ "tokio",
+]
+
+[[package]]
+name = "scriva-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "hound",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "selectors"
 version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4546,38 +4578,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "voiceflow"
-version = "0.1.0"
-dependencies = [
- "block2",
- "core-foundation",
- "core-graphics 0.24.0",
- "cpal",
- "dotenvy",
- "objc2",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-opener",
- "tauri-plugin-store",
- "tokio",
- "voiceflow-core",
-]
-
-[[package]]
-name = "voiceflow-core"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "hound",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "vswhom"

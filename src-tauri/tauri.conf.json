@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "VoiceFlow",
+  "productName": "Scriva",
   "version": "0.1.0",
-  "identifier": "com.voiceflow.app",
+  "identifier": "com.scriva.app",
   "build": {
     "frontendDist": "../src"
   },
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "VoiceFlow Settings",
+        "title": "Scriva Settings",
         "width": 480,
         "height": 640,
         "resizable": false,

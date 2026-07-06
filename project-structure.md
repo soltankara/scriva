@@ -4,7 +4,7 @@ Annotated map of the repository. **Keep this file in sync**: whenever a file or
 folder is added, moved, renamed, or deleted, update this document in the same
 change.
 
-The repo is a Cargo workspace with two crates: `crates/voiceflow-core` (the
+The repo is a Cargo workspace with two crates: `crates/scriva-core` (the
 platform-independent engine — future iOS/Windows shells reuse it) and
 `src-tauri` (the macOS desktop shell). The dividing rule: anything that would
 have to be rewritten per OS (mic capture, hotkey, text injection, tray,
@@ -12,7 +12,7 @@ settings persistence) lives in the shell; everything identical on every
 platform (provider HTTP, audio processing, settings model) lives in core.
 
 ```
-open-wispr/
+scriva/
 ├── CLAUDE.md                        # Instructions + architecture invariants for Claude Code
 ├── README.md                        # Public-facing readme: what it is, setup, milestones
 ├── project-desc.md                  # SOURCE OF TRUTH: full product/design description
@@ -23,20 +23,20 @@ open-wispr/
 ├── Cargo.lock                       # Single workspace lockfile (tracked in git)
 ├── .cargo/
 │   └── config.toml                  # MACHINE-LOCAL, git-ignored: redirects cargo target dir to
-│                                    #   /Users/soltan/.cargo/target-voiceflow (repo is on exFAT;
+│                                    #   /Users/soltan/.cargo/target-scriva (repo is on exFAT;
 │                                    #   AppleDouble ._* sidecars break tauri-build globbing).
 │                                    #   Must stay at the root; run cargo from the repo root.
 ├── .gitignore                       # Ignores /target/, /.cargo/, .env, node_modules, ._* junk
-├── .env.example                     # Template for dev-only API-key overrides (OPENWISPR_*_KEY)
+├── .env.example                     # Template for dev-only API-key overrides (SCRIVA_*_KEY)
 │
 ├── package.json                     # Only dev dep: @tauri-apps/cli; script: npm run tauri
 ├── package-lock.json                # npm lockfile
 │
-├── voiceflow-icon.svg               # SOURCE icon (waveform on light rounded square); input for
-│                                    #   `npx tauri icon voiceflow-icon.svg`, which regenerates
+├── scriva-icon.svg               # SOURCE icon (waveform on light rounded square); input for
+│                                    #   `npx tauri icon scriva-icon.svg`, which regenerates
 │                                    #   src-tauri/icons/ (but never the hand-made tray glyphs)
-├── app-icon.png                     # Old 1024px placeholder icon; superseded by voiceflow-icon.svg
-├── VoiceFlow Settings (standalone).html  # Static design mockup of the settings UI;
+├── app-icon.png                     # Old 1024px placeholder icon; superseded by scriva-icon.svg
+├── Scriva Settings (standalone).html  # Static design mockup of the settings UI;
 │                                    #   NOT loaded by the app (the live UI is src/index.html)
 │
 ├── .claude/
@@ -51,7 +51,7 @@ open-wispr/
 │                                    #   placeholders marked with <!-- PLACEHOLDER --> comments.
 │
 ├── crates/
-│   └── voiceflow-core/              # ── THE ENGINE (platform-independent) ──
+│   └── scriva-core/              # ── THE ENGINE (platform-independent) ──
 │       │                            # Invariant #8: may never depend on tauri, tauri-plugin-*,
 │       │                            # cpal, tokio, or any OS framework.
 │       ├── Cargo.toml               # Minimal deps: reqwest, hound, serde, serde_json, async-trait
@@ -82,9 +82,9 @@ open-wispr/
 │                                    #   Shown/hidden + positioned by src-tauri/src/overlay.rs.
 │
 └── src-tauri/                       # ── THE MACOS DESKTOP SHELL (Tauri 2) ──
-    ├── Cargo.toml                   # Shell crate `voiceflow` (lib voiceflow_lib); depends on
-    │                                #   voiceflow-core + tauri stack + cpal + tokio + dotenvy
-    ├── tauri.conf.json              # App config: identifier com.voiceflow.app, hidden window,
+    ├── Cargo.toml                   # Shell crate `scriva` (lib scriva_lib); depends on
+    │                                #   scriva-core + tauri stack + cpal + tokio + dotenvy
+    ├── tauri.conf.json              # App config: identifier com.scriva.app, hidden window,
     │                                #   withGlobalTauri, frontendDist ../src, bundle settings
     ├── Info.plist                   # NSMicrophoneUsageDescription, LSUIElement (background
     │                                #   agent), CFBundleIdentifier for the dev binary.
@@ -103,7 +103,7 @@ open-wispr/
     │   │                            #   icon_as_template(true) renders alpha channel only.
     │   └── tray-rec.png             # Menu-bar glyph while recording (bordered variant)
     └── src/
-        ├── main.rs                  # Binary entry point; calls voiceflow_lib::run()
+        ├── main.rs                  # Binary entry point; calls scriva_lib::run()
         ├── lib.rs                   # App wiring: AppState, global hotkey registration +
         │                            #   press/release handler, tray creation + recording-icon
         │                            #   swap, run_pipeline (capture→encode→transcribe→clean→
@@ -129,7 +129,7 @@ open-wispr/
         ├── audio.rs                 # Mic CAPTURE only (cpal): dedicated OS thread owns the
         │                            #   !Send stream, ships samples over mpsc. Also mic TCC
         │                            #   status/request (AVFoundation via objc2). Re-exports
-        │                            #   the processing fns from voiceflow_core::audio.
+        │                            #   the processing fns from scriva_core::audio.
         └── inject.rs                # macOS text injection: CGEvent Unicode path (chunked)
                                      #   + AXIsProcessTrusted accessibility check/prompt
 ```
@@ -138,6 +138,6 @@ open-wispr/
 
 - `node_modules/` — npm deps (the Tauri CLI).
 - `/target/` — would be cargo's build dir, but on this machine builds are
-  redirected to `/Users/soltan/.cargo/target-voiceflow` via `.cargo/config.toml`.
+  redirected to `/Users/soltan/.cargo/target-scriva` via `.cargo/config.toml`.
 - `.env` — real dev API keys (never committed).
 - `._*` files — AppleDouble sidecars the exFAT volume creates; junk, ignored.

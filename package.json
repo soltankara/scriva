@@ -1,5 +1,5 @@
 {
-  "name": "voiceflow",
+  "name": "scriva",
   "private": true,
   "scripts": {
     "tauri": "tauri"

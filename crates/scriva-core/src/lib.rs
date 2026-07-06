@@ -1,4 +1,4 @@
-//! voiceflow-core — platform-independent heart of VoiceFlow.
+//! scriva-core — platform-independent heart of Scriva.
 //!
 //! Everything here must compile for any target: no tauri, no cpal, no OS
 //! frameworks. Shells (macOS Tauri app today; iOS/Windows later) own capture,

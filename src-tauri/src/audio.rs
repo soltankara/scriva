@@ -1,6 +1,6 @@
 //! Microphone capture (cpal). Capture only — the platform-independent
 //! processing (downmix, resample, 16 kHz mono WAV encoding, and the
-//! too-short/silence guards) lives in `voiceflow_core::audio`.
+//! too-short/silence guards) lives in `scriva_core::audio`.
 //!
 //! A cpal `Stream` is `!Send`, so a dedicated OS thread owns it for the life of
 //! a recording. The stream callback ships sample chunks over a channel; on stop
@@ -12,7 +12,7 @@ use std::time::Duration;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};
 
-pub use voiceflow_core::audio::{to_wav_16k_mono, RecordedAudio};
+pub use scriva_core::audio::{to_wav_16k_mono, RecordedAudio};
 
 /// Current microphone authorization: `"granted"`, `"denied"`, or
 /// `"undetermined"` (macOS; other platforms report `"granted"`).
@@ -123,7 +123,7 @@ pub fn start_recording() -> Result<RecorderHandle, String> {
             }
         };
         let name = device.name().unwrap_or_else(|_| "unknown".into());
-        eprintln!("[voiceflow] recording from input device: {name}");
+        eprintln!("[scriva] recording from input device: {name}");
         let supported = match device.default_input_config() {
             Ok(c) => c,
             Err(e) => {

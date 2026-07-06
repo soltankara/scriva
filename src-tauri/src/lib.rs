@@ -4,7 +4,7 @@ mod config;
 mod inject;
 mod menu_width;
 mod overlay;
-pub(crate) use voiceflow_core::providers;
+pub(crate) use scriva_core::providers;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, RwLock};
@@ -92,13 +92,13 @@ fn set_tray_recording<R: Runtime>(app: &AppHandle<R>, recording: bool) {
         include_bytes!("../icons/tray.png")
     };
     let Some(tray) = app.tray_by_id("main") else {
-        eprintln!("[voiceflow] tray 'main' not found — icon not swapped");
+        eprintln!("[scriva] tray 'main' not found — icon not swapped");
         return;
     };
     let image = match tauri::image::Image::from_bytes(bytes) {
         Ok(img) => img,
         Err(_) => {
-            eprintln!("[voiceflow] tray glyph failed to decode");
+            eprintln!("[scriva] tray glyph failed to decode");
             return;
         }
     };
@@ -106,7 +106,7 @@ fn set_tray_recording<R: Runtime>(app: &AppHandle<R>, recording: bool) {
         Ok(()) => {
             let _ = tray.set_icon_as_template(true);
         }
-        Err(e) => eprintln!("[voiceflow] tray set_icon failed: {e}"),
+        Err(e) => eprintln!("[scriva] tray set_icon failed: {e}"),
     }
 }
 
@@ -127,7 +127,7 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
                 Ok(handle) => {
                     *state.recorder.lock().unwrap() = Some(handle);
                     let _ = app.emit_to("main", "recording-state", true);
-                    eprintln!("[voiceflow] recording started");
+                    eprintln!("[scriva] recording started");
                     set_tray_recording(app, true);
                     overlay::show(app);
                 }
@@ -135,7 +135,7 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
                     let msg = "Couldn't access the microphone. Check that a mic is connected \
                                and permission is granted.";
                     let _ = app.emit_to("main", "pipeline-error", msg);
-                    eprintln!("[voiceflow] {msg}");
+                    eprintln!("[scriva] {msg}");
                 }
             }
         }
@@ -145,7 +145,7 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
                 return; // no active recording (e.g. mic failed to open)
             };
             let _ = app.emit_to("main", "recording-state", false);
-            eprintln!("[voiceflow] recording stopped");
+            eprintln!("[scriva] recording stopped");
             set_tray_recording(app, false);
             overlay::hide(app);
             state.pipeline_busy.store(true, Ordering::SeqCst);
@@ -154,7 +154,7 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
             tauri::async_runtime::spawn(async move {
                 let outcome = run_pipeline(&app, handle).await;
                 if let Err(msg) = outcome {
-                    eprintln!("[voiceflow] {msg}");
+                    eprintln!("[scriva] {msg}");
                     let _ = app.emit_to("main", "pipeline-error", msg);
                 }
                 app.state::<AppState>()
@@ -185,7 +185,7 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
         0.0
     };
     eprintln!(
-        "[voiceflow] captured {} samples ({:.1}s at {} Hz)",
+        "[scriva] captured {} samples ({:.1}s at {} Hz)",
         audio.samples.len(),
         duration,
         audio.sample_rate
@@ -196,7 +196,7 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
         Some(w) => w,
         None => {
             eprintln!(
-                "[voiceflow] audio empty or silent — nothing sent to transcriber \
+                "[scriva] audio empty or silent — nothing sent to transcriber \
                  (stale mic permission after a rebuild delivers silence; re-grant \
                  Microphone for the app)"
             );
@@ -227,10 +227,10 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
         .map_err(|e| e.to_string())?;
     let raw = raw.trim().to_string();
     if raw.is_empty() {
-        eprintln!("[voiceflow] transcriber returned empty text — nothing to type");
+        eprintln!("[scriva] transcriber returned empty text — nothing to type");
         return Ok(()); // nothing recognized — don't type anything
     }
-    eprintln!("[voiceflow] transcribed {} chars", raw.chars().count());
+    eprintln!("[scriva] transcribed {} chars", raw.chars().count());
 
     // 5. Optional cleanup. Never lose the user's words: on any cleanup failure,
     //    fall back to the raw transcript and warn softly.
@@ -243,19 +243,19 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
                     if !cleaned.is_empty() {
                         text = cleaned;
                     }
-                    eprintln!("[voiceflow] cleanup ok — {} chars", text.chars().count());
+                    eprintln!("[scriva] cleanup ok — {} chars", text.chars().count());
                 }
                 Err(_) => {
                     let msg = "Cleanup failed — typed the raw transcript instead.";
                     let _ = app.emit_to("main", "pipeline-error", msg);
-                    eprintln!("[voiceflow] {msg}");
+                    eprintln!("[scriva] {msg}");
                 }
             },
             Ok(None) => {}
             Err(_) => {
                 let msg = "Cleanup provider isn't configured — typed the raw transcript instead.";
                 let _ = app.emit_to("main", "pipeline-error", msg);
-                eprintln!("[voiceflow] {msg}");
+                eprintln!("[scriva] {msg}");
             }
         }
     }
@@ -264,21 +264,21 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
     //    (transcription works but no text appears). Warn on stderr for
     //    terminal-only users, then still attempt injection.
     if !inject::accessibility_trusted(false) {
-        eprintln!("[voiceflow] accessibility not granted — text will not be typed");
+        eprintln!("[scriva] accessibility not granted — text will not be typed");
     }
 
     // 7. Inject (blocking CGEvent posting off-runtime).
     let n = text.chars().count();
     match tauri::async_runtime::spawn_blocking(move || inject::type_text(&text)).await {
-        Ok(()) => eprintln!("[voiceflow] injected {n} chars"),
-        Err(_) => eprintln!("[voiceflow] injection failed unexpectedly"),
+        Ok(()) => eprintln!("[scriva] injected {n} chars"),
+        Err(_) => eprintln!("[scriva] injection failed unexpectedly"),
     }
     Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Dev-only: load `.env` so OPENWISPR_* key overrides are available.
+    // Dev-only: load `.env` so SCRIVA_* key overrides are available.
     #[cfg(debug_assertions)]
     {
         let _ = dotenvy::dotenv();
@@ -311,15 +311,15 @@ pub fn run() {
             // stored combo is invalid or already taken.
             let handle = app.handle().clone();
             if let Err(e) = apply_hotkey(&handle, &stored_combo) {
-                eprintln!("[voiceflow] stored hotkey unavailable ({e}); falling back to Alt+Space");
+                eprintln!("[scriva] stored hotkey unavailable ({e}); falling back to Alt+Space");
                 let fallback = vec!["⌥".to_string(), "Space".to_string()];
                 if let Err(e2) = apply_hotkey(&handle, &fallback) {
-                    eprintln!("[voiceflow] fallback hotkey registration failed: {e2}");
+                    eprintln!("[scriva] fallback hotkey registration failed: {e2}");
                 } else {
-                    eprintln!("[voiceflow] hotkey registered: Alt+Space");
+                    eprintln!("[scriva] hotkey registered: Alt+Space");
                 }
             } else {
-                eprintln!("[voiceflow] hotkey registered from settings");
+                eprintln!("[scriva] hotkey registered from settings");
             }
 
             let settings_item = MenuItemBuilder::with_id("settings", "Settings").build(app)?;
@@ -353,12 +353,12 @@ pub fn run() {
                     _ => {}
                 })
                 .build(app)?;
-            eprintln!("[voiceflow] tray created (setup)");
+            eprintln!("[scriva] tray created (setup)");
 
             // Build the recording-indicator overlay once, hidden. Press/release
             // only toggle its visibility — never create/destroy on the hot path.
             overlay::create(app.handle());
-            eprintln!("[voiceflow] overlay window created (setup)");
+            eprintln!("[scriva] overlay window created (setup)");
 
             Ok(())
         })
@@ -374,7 +374,7 @@ pub fn run() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("error while building VoiceFlow");
+        .expect("error while building Scriva");
 
     // Background agent: launch as Accessory (no dock icon). Must be set before
     // the event loop runs — a runtime Regular→Accessory flip removes the tray's
