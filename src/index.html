@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoiceFlow Settings</title>
+<style>
+  @keyframes vf-bar { 0%,100%{ transform: scaleY(.28) } 50%{ transform: scaleY(1) } }
+  @keyframes vf-spin { to { transform: rotate(360deg) } }
+  @keyframes vf-pop { from { opacity:0; transform: translateY(6px) scale(.97) } to { opacity:1; transform:none } }
+  @keyframes vf-fade { from { opacity:0 } to { opacity:1 } }
+  @keyframes vf-pulse { 0%,100%{ opacity:1 } 50%{ opacity:.35 } }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent: #5e5ce6;
+    --bg: #ececef; --card: #ffffff; --card2: #f1f1f5;
+    --text: #1d1d1f; --text2: #6e6e73; --text3: #9a9aa0;
+    --sep: rgba(0,0,0,.09); --bar: #e7e7ea;
+    --ok: #1fa84e; --bad: #e0352b; --warn: #e2890a;
+  }
+  [data-theme="dark"] {
+    --bg: #1c1c1e; --card: #2c2c2e; --card2: #3a3a3c;
+    --text: #f5f5f7; --text2: #9a9aa1; --text3: #6c6c72;
+    --sep: rgba(255,255,255,.12); --bar: #2a2a2c;
+    --ok: #30d158; --bad: #ff453a; --warn: #ff9f0a;
+  }
+
+  html, body { height: 100%; }
+  body {
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased; user-select: none; cursor: default;
+  }
+  input { user-select: text; }
+  input::placeholder, textarea::placeholder { color: var(--text3); }
+  input:focus { outline: none; }
+  button { font-family: inherit; cursor: pointer; }
+  ::-webkit-scrollbar { width: 9px; }
+  ::-webkit-scrollbar-thumb { background: rgba(140,140,150,.4); border-radius: 9px; border: 3px solid transparent; background-clip: padding-box; }
+
+  .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 16px 14px; }
+
+  /* Header */
+  .header { display: flex; align-items: center; gap: 13px; padding: 2px 4px 4px; }
+  .logo { width: 50px; height: 50px; flex: none; }
+  .logo svg { display: block; width: 100%; height: 100%; }
+  .title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+  .tagline { font-size: 12.5px; line-height: 1.35; color: var(--text2); margin-top: 1px; }
+  .pill {
+    flex: none; display: flex; align-items: center; gap: 7px; padding: 6px 11px;
+    border-radius: 20px; border: none; font-size: 12px; font-weight: 600;
+    background: var(--card2); color: var(--text2); cursor: default;
+  }
+  .pill.rec { background: #ff453a; color: #fff; box-shadow: 0 2px 10px -1px rgba(255,69,58,.5); }
+  .pill.err { background: var(--bad); color: #fff; }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .pill .bars { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 13px; color: #fff; }
+  .pill .bars span { width: 2.5px; height: 13px; border-radius: 2px; background: currentColor; transform-origin: bottom; animation: vf-bar .7s ease-in-out infinite; }
+  .pill .bars span:nth-child(2) { animation-delay: .15s } .pill .bars span:nth-child(3) { animation-delay: .3s } .pill .bars span:nth-child(4) { animation-delay: .45s }
+  /* Sections */
+  .sec { margin-top: 18px; }
+  .sec-label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text3); padding: 0 6px 7px; }
+  .card { background: var(--card); border: .5px solid var(--sep); border-radius: 11px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .row { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+  .row-sep { border-bottom: .5px solid var(--sep); }
+  .row-title { font-size: 14px; }
+  .row-sub { font-size: 11.5px; color: var(--text2); margin-top: 2px; }
+
+  /* Dropdown */
+  .dd-btn {
+    display: flex; align-items: center; gap: 7px; background: var(--card2);
+    border: .5px solid var(--sep); border-radius: 7px; padding: 5px 9px 5px 11px;
+    font-size: 13px; font-weight: 500; color: var(--text);
+  }
+  .dd-btn .chev { color: var(--text3); font-size: 10px; line-height: 1; }
+  .menu {
+    position: absolute; top: 44px; right: 14px; width: 258px; background: var(--card);
+    border: .5px solid var(--sep); border-radius: 10px; box-shadow: 0 12px 34px -8px rgba(0,0,0,.32);
+    padding: 5px; z-index: 30; animation: vf-pop .12s ease;
+  }
+  .menu button {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px;
+    border: none; background: transparent; border-radius: 7px; text-align: left;
+  }
+  .menu button.sel { background: rgba(94,92,230,.09); }
+  [data-theme="dark"] .menu button.sel { background: rgba(125,122,255,.16); }
+  .menu .opt-label { font-size: 13.5px; font-weight: 500; color: var(--text); }
+  .menu .opt-sub { font-size: 11.5px; color: var(--text2); margin-top: 1px; }
+  .menu .check { font-size: 13px; color: var(--accent); font-weight: 700; opacity: 0; margin-left: auto; }
+  .menu button.sel .check { opacity: 1; }
+
+  /* Key input row */
+  .key-area { padding: 12px 14px; }
+  .key-flex { display: flex; align-items: center; gap: 9px; }
+  .key-wrap { flex: 1; display: flex; align-items: center; background: var(--card2); border: .5px solid var(--sep); border-radius: 8px; padding-right: 7px; }
+  .key-wrap input {
+    flex: 1; min-width: 0; background: transparent; border: none; padding: 8px 11px;
+    font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text); letter-spacing: .02em;
+  }
+  .eye { border: none; background: transparent; color: var(--text3); padding: 3px 4px; display: flex; align-items: center; }
+  .test-btn {
+    flex: none; min-width: 60px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 13px; border-radius: 8px; border: .5px solid var(--accent); background: transparent;
+    color: var(--accent); font-size: 12.5px; font-weight: 600;
+  }
+  .test-btn:disabled { opacity: .7; cursor: default; }
+  .spinner { width: 12px; height: 12px; border: 1.6px solid currentColor; border-top-color: transparent; border-radius: 50%; display: inline-block; animation: vf-spin .7s linear infinite; }
+  .key-foot { display: flex; align-items: center; margin-top: 9px; min-height: 15px; }
+  .status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; }
+  .status.valid { color: var(--ok); } .status.invalid { color: var(--bad); }
+  .key-link {
+    border: none; background: transparent; margin-left: auto; padding: 0 0 0 10px;
+    color: var(--accent); font-size: 11.5px; font-weight: 500; white-space: nowrap;
+  }
+
+  /* Toggle switch */
+  .switch {
+    flex: none; width: 38px; height: 23px; border-radius: 12px; border: .5px solid var(--sep);
+    background: var(--card2); position: relative; transition: background .18s ease;
+  }
+  .switch::after {
+    content: ''; position: absolute; top: 1.5px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .18s ease;
+  }
+  .switch.on { background: var(--ok); border-color: transparent; }
+  .switch.on::after { transform: translateX(14px); }
+
+  /* Hotkey */
+  .hk-btn {
+    display: flex; align-items: center; gap: 4px; min-height: 34px; padding: 4px 10px;
+    border-radius: 8px; background: var(--card2); border: .5px solid var(--sep);
+  }
+  .hk-btn:hover { border-color: var(--accent); }
+  .hk-btn.capturing { border-color: var(--accent); background: rgba(94,92,230,.08); }
+  [data-theme="dark"] .hk-btn.capturing { background: rgba(125,122,255,.16); }
+  .hk-btn .capturing-label { font-size: 12.5px; color: var(--accent); font-weight: 600; animation: vf-pulse 1s ease-in-out infinite; }
+  .keycap {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 24px;
+    padding: 0 6px; background: var(--card2); border: .5px solid rgba(0,0,0,.14); border-bottom-width: 2px;
+    border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--text);
+  }
+  [data-theme="dark"] .keycap { border-color: rgba(255,255,255,.18); }
+  .hk-error { font-size: 11.5px; color: var(--bad); padding: 8px 6px 0; }
+
+  /* Permissions */
+  .perm-icon { width: 30px; height: 30px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .perm-row { display: flex; align-items: center; gap: 11px; padding: 12px 14px; }
+  .granted { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--ok); }
+  .denied { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--bad); }
+  .grant-btn { background: var(--warn); color: #fff; border: none; border-radius: 7px; padding: 6px 11px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .grant-btn.mic { background: var(--accent); }
+  .warn-box {
+    margin: 0 10px 11px; display: flex; gap: 8px; align-items: flex-start;
+    background: rgba(255,159,10,.1); border: .5px solid rgba(255,159,10,.3); border-radius: 9px; padding: 9px 11px;
+  }
+  .warn-box span { font-size: 11.5px; line-height: 1.45; color: var(--text); }
+
+  /* Try it */
+  .tryit textarea {
+    display: block; width: 100%; min-height: 74px; resize: none; border: none; background: transparent;
+    padding: 11px 13px; font-family: inherit; font-size: 13px; line-height: 1.5; color: var(--text);
+    user-select: text; cursor: text;
+  }
+  .tryit textarea:focus { outline: none; }
+  .tryit { transition: border-color .15s ease, box-shadow .15s ease; }
+  .tryit.recording { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94,92,230,.18); }
+
+  .privacy { font-size: 11px; line-height: 1.5; color: var(--text3); text-align: center; padding: 18px 12px 6px; }
+
+  /* Autosave chip */
+  .saved-chip {
+    position: fixed; right: 14px; bottom: 14px; z-index: 40;
+    background: var(--card); border: .5px solid var(--sep); border-radius: 20px;
+    padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--ok);
+    box-shadow: 0 4px 14px -4px rgba(0,0,0,.25); animation: vf-fade .15s ease;
+  }
+
+  /* Error toast */
+  .toast {
+    position: fixed; left: 14px; right: 14px; bottom: 14px; z-index: 50;
+    background: var(--card); color: var(--bad); border: .5px solid var(--bad); border-radius: 9px;
+    padding: 10px 34px 10px 13px; font-size: 12px; line-height: 1.45; animation: vf-pop .15s ease;
+    box-shadow: 0 6px 20px -6px rgba(0,0,0,.3);
+  }
+  .toast button { position: absolute; top: 6px; right: 8px; border: none; background: transparent; color: var(--bad); font-size: 14px; }
+
+  .overlay { position: fixed; inset: 0; z-index: 20; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="scroll">
+
+  <!-- Header -->
+  <div class="header">
+    <!-- Waveform from voiceflow-icon.svg (the repo-root logo source), transparent
+         background per user preference — keep the path in sync. -->
+    <div class="logo">
+      <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64" fill="none" stroke="#5e5ce6" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </div>
+    <div style="flex:1; min-width:0;">
+      <div class="title">VoiceFlow</div>
+      <div class="tagline">Hold your hotkey, speak, release.<br>Bring your own API key.</div>
+    </div>
+    <div id="recPill" class="pill"><span class="dot"></span><span>Ready</span></div>
+  </div>
+
+  <!-- Transcription -->
+  <div class="sec">
+    <div class="sec-label">Transcription · Required</div>
+    <div class="card">
+      <div class="row row-sep">
+        <span class="row-title">Provider</span>
+        <button id="transDD" class="dd-btn"><span id="transLabel">Groq</span> <span class="chev">▾</span></button>
+        <div id="transMenu" class="menu hidden"></div>
+      </div>
+      <div class="row row-sep">
+        <span class="row-title">Model</span>
+        <button id="transModelDD" class="dd-btn"><span id="transModelLabel">Default</span> <span class="chev">▾</span></button>
+        <div id="transModelMenu" class="menu hidden"></div>
+      </div>
+      <div class="key-area">
+        <div class="key-flex">
+          <div class="key-wrap">
+            <input id="transKey" type="password" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <button id="transEye" class="eye" title="Show / hide"></button>
+          </div>
+          <button id="transTest" class="test-btn"><span>Test</span></button>
+        </div>
+        <div class="key-foot">
+          <div id="transStatus" class="status hidden"></div>
+          <button id="transKeyLink" class="key-link">Get a key →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cleanup -->
+  <div class="sec">
+    <div class="sec-label">Cleanup · Optional</div>
+    <div class="card">
+      <div class="row" id="cleanToggleRow">
+        <div style="flex:1; min-width:0; padding-right:12px;">
+          <div class="row-title">Polish transcript</div>
+          <div class="row-sub">Remove filler words, fix punctuation &amp; capitalization — never your meaning.</div>
+        </div>
+        <button id="cleanToggle" class="switch" role="switch" aria-checked="false" aria-label="Enable cleanup"></button>
+      </div>
+      <div class="row hidden" id="cleanProviderRow">
+        <span class="row-title">Provider</span>
+        <button id="cleanDD" class="dd-btn"><span id="cleanLabel">Claude</span> <span class="chev">▾</span></button>
+        <div id="cleanMenu" class="menu hidden"></div>
+      </div>
+      <div class="row hidden" id="cleanModelRow">
+        <span class="row-title">Model</span>
+        <button id="cleanModelDD" class="dd-btn"><span id="cleanModelLabel">Default</span> <span class="chev">▾</span></button>
+        <div id="cleanModelMenu" class="menu hidden"></div>
+      </div>
+      <div id="cleanKeyArea" class="key-area hidden" style="padding-top:11px;">
+        <div class="key-flex">
+          <div class="key-wrap">
+            <input id="cleanKey" type="password" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <button id="cleanEye" class="eye" title="Show / hide"></button>
+          </div>
+          <button id="cleanTest" class="test-btn"><span>Test</span></button>
+        </div>
+        <div class="key-foot">
+          <div id="cleanStatus" class="status hidden"></div>
+          <button id="cleanKeyLink" class="key-link">Get a key →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hotkey -->
+  <div class="sec">
+    <div class="sec-label">Push-to-talk</div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="row-title">Shortcut</div>
+          <div class="row-sub">Hold to record · release to transcribe</div>
+          <div class="row-sub" style="color:var(--text3)">Click the keys to change</div>
+        </div>
+        <button id="hkBtn" class="hk-btn" title="Click to change"></button>
+      </div>
+    </div>
+    <div id="hkError" class="hk-error hidden"></div>
+  </div>
+
+  <!-- Permissions -->
+  <div class="sec">
+    <div class="sec-label">Permissions</div>
+    <div class="card">
+      <div class="perm-row row-sep">
+        <div class="perm-icon" style="background:rgba(94,92,230,.12)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5e5ce6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10.5V11a7 7 0 0 0 14 0v-.5"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:13.5px; font-weight:500;">Microphone</div>
+          <div class="row-sub">Required to capture your voice</div>
+        </div>
+        <span id="micGranted" class="granted hidden">✓ Granted</span>
+        <span id="micDenied" class="denied hidden">✕ Denied</span>
+        <button id="micAllow" class="grant-btn mic hidden">Allow Microphone</button>
+        <button id="micGrant" class="grant-btn mic hidden">Open System Settings</button>
+      </div>
+      <div class="perm-row">
+        <div class="perm-icon" style="background:rgba(255,159,10,.14)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e2890a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10.5" x2="6" y2="10.5"/><line x1="10" y1="10.5" x2="10" y2="10.5"/><line x1="14" y1="10.5" x2="14" y2="10.5"/><line x1="18" y1="10.5" x2="18" y2="10.5"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:13.5px; font-weight:500;">Accessibility</div>
+          <div class="row-sub">Required to type into other apps</div>
+        </div>
+        <span id="a11yGranted" class="granted hidden">✓ Granted</span>
+        <button id="a11yGrant" class="grant-btn hidden">Open System Settings</button>
+      </div>
+      <div id="a11yWarn" class="warn-box hidden">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e2890a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none; margin-top:1px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13.5"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Without Accessibility, speech is transcribed but <strong>no text appears</strong> in your app. This is the most common setup issue.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Try it -->
+  <div class="sec">
+    <div class="sec-label">Try it</div>
+    <div class="card tryit" id="tryCard">
+      <textarea id="tryIt" rows="3" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <div class="privacy">Your key, your data. Audio goes only to the provider you chose — nothing else leaves your Mac. No accounts, no telemetry.</div>
+</div>
+
+<div id="savedChip" class="saved-chip hidden">✓ Saved</div>
+
+<div id="overlay" class="overlay hidden"></div>
+<div id="toast" class="toast hidden"><span id="toastMsg"></span><button id="toastClose">✕</button></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TAURI = window.__TAURI__ || null;
+  var invoke = TAURI ? TAURI.core.invoke : function (cmd) {
+    console.warn('[dev] invoke stub:', cmd, arguments[1]);
+    if (cmd === 'load_settings') return Promise.resolve(null);
+    if (cmd === 'check_permissions') return Promise.resolve({ mic: 'undetermined', accessibility: false });
+    return Promise.resolve('ok');
+  };
+
+  var EYE_OPEN = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var EYE_OFF = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/><path d="M6.6 6.6A13.5 13.5 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 3.06-.52"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+  var PLACEHOLDER = { groq: 'gsk_xxxxxxxxxxxxxxxxxxxx', openai: 'sk-xxxxxxxxxxxxxxxxxxxx', claude: 'sk-ant-xxxxxxxxxxxxxxxx', gemini: 'AIzaxxxxxxxxxxxxxxxxxx' };
+  var LABEL = { groq: 'Groq', openai: 'OpenAI', claude: 'Claude', gemini: 'Gemini', none: 'None' };
+  var KEY_FIELD = { groq: 'groq_key', openai: 'openai_key', claude: 'claude_key', gemini: 'gemini_key' };
+  var KEY_URLS = {
+    groq: 'https://console.groq.com/keys',
+    openai: 'https://platform.openai.com/api-keys',
+    claude: 'https://console.anthropic.com/settings/keys',
+    gemini: 'https://aistudio.google.com/apikey'
+  };
+  /* Curated model lists. value '' = provider default (core falls back to its
+     built-in const, so untouched users ride along with future default bumps). */
+  var MODEL_OPTS = {
+    transcription: {
+      groq: [
+        { value: '', label: 'Default', sub: 'whisper-large-v3 · most accurate' },
+        { value: 'whisper-large-v3-turbo', label: 'whisper-large-v3-turbo', sub: '~2× faster · cheaper' }
+      ],
+      openai: [
+        { value: '', label: 'Default', sub: 'whisper-1 · proven' },
+        { value: 'gpt-4o-transcribe', label: 'gpt-4o-transcribe', sub: 'higher accuracy' },
+        { value: 'gpt-4o-mini-transcribe', label: 'gpt-4o-mini-transcribe', sub: 'faster · cheaper' }
+      ]
+    },
+    cleanup: {
+      claude: [
+        { value: '', label: 'Default', sub: 'claude-3-5-haiku · fast' },
+        { value: 'claude-haiku-4-5', label: 'claude-haiku-4-5', sub: 'newer · still fast' },
+        { value: 'claude-sonnet-4-6', label: 'claude-sonnet-4-6', sub: 'best quality · slower' }
+      ],
+      openai: [
+        { value: '', label: 'Default', sub: 'gpt-4o-mini · fast' },
+        { value: 'gpt-5-mini', label: 'gpt-5-mini', sub: 'newer' },
+        { value: 'gpt-5-nano', label: 'gpt-5-nano', sub: 'fastest · cheapest' }
+      ],
+      gemini: [
+        { value: '', label: 'Default', sub: 'gemini-2.0-flash · fast' },
+        { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash', sub: 'newer' },
+        { value: 'gemini-2.5-flash-lite', label: 'gemini-2.5-flash-lite', sub: 'fastest · cheapest' }
+      ]
+    }
+  };
+  function modelLabel(layer, provider, model) {
+    var opts = (MODEL_OPTS[layer] || {})[provider] || [];
+    for (var i = 0; i < opts.length; i++) if (opts[i].value === model) return opts[i].label;
+    return model || 'Default';
+  }
+  var TRANS_OPTS = [
+    { value: 'groq', label: 'Groq', sub: 'Fastest · generous free tier' },
+    { value: 'openai', label: 'OpenAI', sub: 'Whisper & GPT-4o transcribe models' }
+  ];
+  var CLEAN_OPTS = [
+    { value: 'claude', label: 'Claude', sub: 'Best writing quality' },
+    { value: 'openai', label: 'OpenAI', sub: 'GPT mini models · cheap & fast' },
+    { value: 'gemini', label: 'Gemini', sub: 'Flash models · cheap & fast' }
+  ];
+
+  var state = {
+    settings: {
+      transcription_provider: 'groq',
+      transcription_model: '',
+      cleanup_provider: 'none',
+      cleanup_model: '',
+      hotkey: ['⌥', 'Space'],
+      groq_key: '', openai_key: '', claude_key: '', gemini_key: ''
+    },
+    transTest: { s: 'idle', msg: '' },
+    cleanTest: { s: 'idle', msg: '' },
+    showTransKey: false, showCleanKey: false,
+    capturingHotkey: false,
+    perms: { mic: 'undetermined', accessibility: false },
+    recording: false,
+    pillError: false,
+    menu: '',
+    dark: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  };
+  /* Remembered so the cleanup toggle can restore the last provider after off→on. */
+  var lastCleanProvider = 'claude';
+
+  function $(id) { return document.getElementById(id); }
+  function show(el, on) { el.classList.toggle('hidden', !on); }
+
+  /* ---------- rendering ---------- */
+
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', state.dark ? 'dark' : 'light');
+  }
+
+  function renderPill() {
+    var pill = $('recPill');
+    pill.classList.toggle('rec', state.recording);
+    pill.classList.toggle('err', !state.recording && state.pillError);
+    pill.innerHTML = state.recording
+      ? '<span class="bars"><span></span><span></span><span></span><span></span></span><span>Listening</span>'
+      : state.pillError
+        ? '<span>Error</span>'
+        : '<span class="dot"></span><span>Ready</span>';
+  }
+
+  function renderMenu(el, opts, current, onPick) {
+    el.innerHTML = '';
+    opts.forEach(function (o) {
+      var b = document.createElement('button');
+      b.className = o.value === current ? 'sel' : '';
+      b.innerHTML = '<div><div class="opt-label"></div><div class="opt-sub"></div></div><span class="check">✓</span>';
+      b.querySelector('.opt-label').textContent = o.label;
+      b.querySelector('.opt-sub').textContent = o.sub;
+      b.addEventListener('click', function () { onPick(o.value); });
+      el.appendChild(b);
+    });
+  }
+
+  function renderStatus(el, t) {
+    show(el, t.s === 'valid' || t.s === 'invalid');
+    el.className = 'status ' + (t.s === 'valid' ? 'valid' : t.s === 'invalid' ? 'invalid' : '') + (t.s === 'valid' || t.s === 'invalid' ? '' : ' hidden');
+    el.textContent = (t.s === 'valid' ? '✓ ' : t.s === 'invalid' ? '✕ ' : '') + t.msg;
+  }
+
+  function renderTestBtn(btn, loading) {
+    btn.disabled = loading;
+    btn.innerHTML = loading ? '<span class="spinner"></span>' : '<span>Test</span>';
+  }
+
+  function renderTrans() {
+    var p = state.settings.transcription_provider;
+    $('transLabel').textContent = LABEL[p];
+    $('transKey').placeholder = PLACEHOLDER[p];
+    $('transKey').value = state.settings[KEY_FIELD[p]];
+    $('transKey').type = state.showTransKey ? 'text' : 'password';
+    $('transEye').innerHTML = state.showTransKey ? EYE_OFF : EYE_OPEN;
+    renderTestBtn($('transTest'), state.transTest.s === 'loading');
+    renderStatus($('transStatus'), state.transTest);
+    $('transKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
+    $('transModelLabel').textContent = modelLabel('transcription', p, state.settings.transcription_model);
+    renderMenu($('transModelMenu'), MODEL_OPTS.transcription[p] || [], state.settings.transcription_model, function (v) {
+      state.settings.transcription_model = v;
+      state.transTest = { s: 'idle', msg: '' };
+      closeMenus(); renderTrans(); scheduleSave();
+    });
+    renderMenu($('transMenu'), TRANS_OPTS, p, function (v) {
+      state.settings.transcription_provider = v;
+      state.settings.transcription_model = ''; /* a model ID is provider-specific */
+      state.transTest = { s: 'idle', msg: '' };
+      closeMenus(); renderTrans(); scheduleSave();
+    });
+  }
+
+  function renderClean() {
+    var p = state.settings.cleanup_provider;
+    var on = p !== 'none';
+    $('cleanToggle').classList.toggle('on', on);
+    $('cleanToggle').setAttribute('aria-checked', on ? 'true' : 'false');
+    $('cleanToggleRow').classList.toggle('row-sep', on);
+    show($('cleanProviderRow'), on);
+    $('cleanProviderRow').classList.toggle('row-sep', on);
+    show($('cleanModelRow'), on);
+    $('cleanModelRow').classList.toggle('row-sep', on);
+    show($('cleanKeyArea'), on);
+    if (on) {
+      $('cleanLabel').textContent = LABEL[p];
+      $('cleanKey').placeholder = PLACEHOLDER[p] || 'sk-...';
+      $('cleanKey').value = state.settings[KEY_FIELD[p]];
+      $('cleanKey').type = state.showCleanKey ? 'text' : 'password';
+      $('cleanEye').innerHTML = state.showCleanKey ? EYE_OFF : EYE_OPEN;
+      renderTestBtn($('cleanTest'), state.cleanTest.s === 'loading');
+      renderStatus($('cleanStatus'), state.cleanTest);
+      $('cleanKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
+      $('cleanModelLabel').textContent = modelLabel('cleanup', p, state.settings.cleanup_model);
+      renderMenu($('cleanModelMenu'), MODEL_OPTS.cleanup[p] || [], state.settings.cleanup_model, function (v) {
+        state.settings.cleanup_model = v;
+        state.cleanTest = { s: 'idle', msg: '' };
+        closeMenus(); renderClean(); scheduleSave();
+      });
+      renderMenu($('cleanMenu'), CLEAN_OPTS, p, function (v) {
+        state.settings.cleanup_provider = v;
+        state.settings.cleanup_model = ''; /* a model ID is provider-specific */
+        lastCleanProvider = v;
+        state.cleanTest = { s: 'idle', msg: '' };
+        closeMenus(); renderClean(); scheduleSave();
+      });
+    }
+  }
+
+  function renderHotkey() {
+    var btn = $('hkBtn');
+    btn.classList.toggle('capturing', state.capturingHotkey);
+    if (state.capturingHotkey) {
+      btn.innerHTML = '<span class="capturing-label">Press keys…</span>';
+    } else {
+      btn.innerHTML = '';
+      state.settings.hotkey.forEach(function (cap) {
+        var k = document.createElement('span');
+        k.className = 'keycap'; k.textContent = cap;
+        btn.appendChild(k);
+      });
+    }
+    $('tryIt').placeholder = 'Click here, hold ' + state.settings.hotkey.join('') +
+      ', speak, release — your words appear here if everything works.';
+  }
+
+  function renderPerms() {
+    var mic = state.perms.mic;
+    show($('micGranted'), mic === 'granted');
+    show($('micDenied'), mic === 'denied');
+    show($('micGrant'), mic === 'denied');
+    show($('micAllow'), mic !== 'granted' && mic !== 'denied');
+    var ax = state.perms.accessibility;
+    show($('a11yGranted'), ax); show($('a11yGrant'), !ax); show($('a11yWarn'), !ax);
+  }
+
+  function closeMenus() {
+    state.menu = '';
+    show($('transMenu'), false); show($('cleanMenu'), false);
+    show($('transModelMenu'), false); show($('cleanModelMenu'), false);
+    show($('overlay'), false);
+  }
+
+  function toast(msg) {
+    $('toastMsg').textContent = msg;
+    show($('toast'), true);
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { show($('toast'), false); }, 8000);
+  }
+
+  /* ---------- actions ---------- */
+
+  function runTest(layer) {
+    var isTrans = layer === 'transcription';
+    var provider = isTrans ? state.settings.transcription_provider : state.settings.cleanup_provider;
+    var model = isTrans ? state.settings.transcription_model : state.settings.cleanup_model;
+    var key = (isTrans ? $('transKey').value : $('cleanKey').value).trim();
+    var field = isTrans ? 'transTest' : 'cleanTest';
+    if (!key) {
+      state[field] = { s: 'invalid', msg: 'Enter your API key above first.' };
+      isTrans ? renderTrans() : renderClean();
+      return;
+    }
+    state[field] = { s: 'loading', msg: '' };
+    isTrans ? renderTrans() : renderClean();
+    invoke('test_provider', { layer: layer, provider: provider, key: key, model: model })
+      .then(function (model) { state[field] = { s: 'valid', msg: 'Connected · ' + model }; })
+      .catch(function (err) { state[field] = { s: 'invalid', msg: String(err) }; })
+      .then(function () { isTrans ? renderTrans() : renderClean(); });
+  }
+
+  /* Debounced auto-save: every settings mutation schedules a save; blur or a
+     hidden window flushes a pending one so nothing is lost to tray-Quit. */
+  var saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(doSave, 400);
+  }
+  function doSave() {
+    clearTimeout(saveTimer); saveTimer = null;
+    invoke('save_settings', { s: state.settings })
+      .then(function () {
+        show($('savedChip'), true);
+        clearTimeout(doSave._t);
+        doSave._t = setTimeout(function () { show($('savedChip'), false); }, 1800);
+      })
+      .catch(function (err) { toast(String(err)); });
+  }
+  function flushSave() { if (saveTimer) doSave(); }
+
+  function openPane(pane) {
+    if (TAURI && TAURI.opener && TAURI.opener.openUrl) {
+      TAURI.opener.openUrl('x-apple.systempreferences:com.apple.preference.security?' + pane)
+        .catch(function () { /* scope may disallow; a11y path uses request_accessibility instead */ });
+    }
+  }
+
+  function refreshPerms() {
+    invoke('check_permissions').then(function (p) {
+      if (p) { state.perms = p; renderPerms(); }
+    }).catch(function () {});
+  }
+
+  /* ---------- events ---------- */
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+      state.dark = e.matches; applyTheme();
+    });
+  }
+
+  $('cleanToggle').addEventListener('click', function () {
+    var on = state.settings.cleanup_provider !== 'none';
+    state.settings.cleanup_provider = on ? 'none' : lastCleanProvider;
+    state.cleanTest = { s: 'idle', msg: '' };
+    renderClean(); scheduleSave();
+  });
+
+  function openKeyPage(provider) {
+    if (TAURI && TAURI.opener && TAURI.opener.openUrl && KEY_URLS[provider]) {
+      TAURI.opener.openUrl(KEY_URLS[provider]).catch(function () {});
+    }
+  }
+  $('transKeyLink').addEventListener('click', function () { openKeyPage(state.settings.transcription_provider); });
+  $('cleanKeyLink').addEventListener('click', function () { openKeyPage(state.settings.cleanup_provider); });
+
+  $('transDD').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var open = state.menu === 'trans';
+    closeMenus();
+    if (!open) { state.menu = 'trans'; show($('transMenu'), true); show($('overlay'), true); }
+  });
+  $('cleanDD').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var open = state.menu === 'clean';
+    closeMenus();
+    if (!open) { state.menu = 'clean'; show($('cleanMenu'), true); show($('overlay'), true); }
+  });
+  $('transModelDD').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var open = state.menu === 'transModel';
+    closeMenus();
+    if (!open) { state.menu = 'transModel'; show($('transModelMenu'), true); show($('overlay'), true); }
+  });
+  $('cleanModelDD').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var open = state.menu === 'cleanModel';
+    closeMenus();
+    if (!open) { state.menu = 'cleanModel'; show($('cleanModelMenu'), true); show($('overlay'), true); }
+  });
+  $('overlay').addEventListener('click', closeMenus);
+
+  $('transKey').addEventListener('input', function () {
+    state.settings[KEY_FIELD[state.settings.transcription_provider]] = this.value;
+    if (state.transTest.s !== 'idle') { state.transTest = { s: 'idle', msg: '' }; renderStatus($('transStatus'), state.transTest); }
+    scheduleSave();
+  });
+  $('cleanKey').addEventListener('input', function () {
+    state.settings[KEY_FIELD[state.settings.cleanup_provider]] = this.value;
+    if (state.cleanTest.s !== 'idle') { state.cleanTest = { s: 'idle', msg: '' }; renderStatus($('cleanStatus'), state.cleanTest); }
+    scheduleSave();
+  });
+  $('transEye').addEventListener('click', function () { state.showTransKey = !state.showTransKey; renderTrans(); });
+  $('cleanEye').addEventListener('click', function () { state.showCleanKey = !state.showCleanKey; renderClean(); });
+  $('transTest').addEventListener('click', function () { runTest('transcription'); });
+  $('cleanTest').addEventListener('click', function () { runTest('cleanup'); });
+
+  $('hkBtn').addEventListener('click', function () {
+    state.capturingHotkey = true;
+    show($('hkError'), false);
+    renderHotkey();
+  });
+
+  window.addEventListener('keydown', function (e) {
+    if (!state.capturingHotkey) return;
+    e.preventDefault();
+    if (e.key === 'Escape') { state.capturingHotkey = false; renderHotkey(); return; }
+    var mods = [];
+    if (e.ctrlKey) mods.push('⌃');
+    if (e.altKey) mods.push('⌥');
+    if (e.shiftKey) mods.push('⇧');
+    if (e.metaKey) mods.push('⌘');
+    /* Derive the main key from the physical e.code, not e.key: with modifiers
+       held, macOS transforms characters (⌥A → "å", ⌥Space → U+00A0 nbsp). */
+    var c = e.code, k = '';
+    if (/^Key[A-Z]$/.test(c)) k = c.slice(3);
+    else if (/^Digit[0-9]$/.test(c)) k = c.slice(5);
+    else if (c === 'Space') k = 'Space';
+    else if (/^F([1-9]|1[0-2])$/.test(c) || /^Arrow/.test(c)) k = c;
+    else if (e.key.length === 1 && !e.altKey) k = e.key.toUpperCase();
+    var caps = mods.slice();
+    if (k) caps.push(k);
+    /* Submit only once a main key arrives — modifier keydowns fire first
+       (bare ⌥ etc.) and must keep capture mode open. */
+    if (k && (mods.length || /^F\d+$/.test(k))) {
+      var prev = state.settings.hotkey;
+      state.settings.hotkey = caps;
+      state.capturingHotkey = false;
+      renderHotkey();
+      invoke('set_hotkey', { combo: caps }).then(function () {
+        /* set_hotkey registers but doesn't persist — auto-save makes it stick. */
+        scheduleSave();
+      }).catch(function (err) {
+        state.settings.hotkey = prev;
+        renderHotkey();
+        $('hkError').textContent = String(err);
+        show($('hkError'), true);
+      });
+    }
+  }, true);
+
+  $('micAllow').addEventListener('click', function () {
+    invoke('request_microphone').catch(function () {});
+  });
+  $('micGrant').addEventListener('click', function () { openPane('Privacy_Microphone'); });
+  $('a11yGrant').addEventListener('click', function () {
+    invoke('request_accessibility').catch(function () {});
+  });
+
+  window.addEventListener('blur', flushSave);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) flushSave(); });
+  $('toastClose').addEventListener('click', function () { show($('toast'), false); });
+
+  /* ---------- init ---------- */
+
+  applyTheme();
+  renderPill();
+  renderTrans();
+  renderClean();
+  renderHotkey();
+  renderPerms();
+
+  invoke('load_settings').then(function (s) {
+    if (s) {
+      state.settings = s;
+      if (s.cleanup_provider && s.cleanup_provider !== 'none') lastCleanProvider = s.cleanup_provider;
+      renderTrans(); renderClean(); renderHotkey();
+    }
+  }).catch(function () {});
+
+  refreshPerms();
+  setInterval(refreshPerms, 3000);
+
+  if (TAURI && TAURI.event) {
+    TAURI.event.listen('recording-state', function (ev) {
+      state.recording = !!ev.payload;
+      if (state.recording) state.pillError = false;
+      renderPill();
+      $('tryCard').classList.toggle('recording', state.recording);
+    });
+    TAURI.event.listen('pipeline-error', function (ev) {
+      /* Also fired for soft cleanup fallbacks (raw text was still typed);
+         the pill resets on the next recording. */
+      state.pillError = true;
+      renderPill();
+      toast(String(ev.payload));
+    });
+  }
+})();
+</script>
+</body>
+</html>

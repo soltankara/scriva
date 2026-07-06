@@ -1,0 +1,32 @@
+[package]
+name = "voiceflow"
+version = "0.1.0"
+description = "Open-source, bring-your-own-key voice dictation. Hold a hotkey, speak, release."
+authors = ["Soltan Garayev"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "voiceflow_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+voiceflow-core = { path = "../crates/voiceflow-core" }
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-store = "2"
+tauri-plugin-opener = "2"
+serde.workspace = true
+serde_json.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+cpal = "0.16"
+dotenvy = "0.15"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.24"
+core-foundation = "0.10"
+objc2 = "0.6"
+block2 = "0.6"

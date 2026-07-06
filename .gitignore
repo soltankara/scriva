@@ -1,0 +1,17 @@
+# Node
+node_modules/
+dist/
+*.log
+
+# Rust / Tauri
+/target/
+src-tauri/gen/
+# machine-local cargo config (relocated target dir for exFAT volume)
+/.cargo/
+
+# Local secrets (dev-only key overrides)
+.env
+
+# macOS noise
+.DS_Store
+._*

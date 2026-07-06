@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scriva — Speak. It writes. Cleanly.</title>
+  <meta name="description" content="Scriva is an open-source voice dictation app for macOS. Hold a hotkey, speak, and polished text appears wherever your cursor is. Bring your own API key. No subscription, no telemetry.">
+  <meta property="og:title" content="Scriva — Speak. It writes. Cleanly.">
+  <meta property="og:description" content="Open-source voice dictation for macOS. Your keys, your models, your data. No subscription.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0b0b0c">
+
+  <!-- Inter via a standard font CDN, with system-font fallback in CSS -->
+  <link rel="preconnect" href="https://rsms.me/">
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+
+  <!-- Favicon: the Scriva waveform mark, inlined as SVG -->
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><path d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64" stroke="%235e5ce6" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'>
+
+  <style>
+    /* ============================================================
+       1. DESIGN TOKENS
+       All colors, spacing, radii and shadows live here.
+       Tweak the brand in one place.
+       ============================================================ */
+    :root {
+      /* Type */
+      --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+      /* Brand accent (fixed across themes) */
+      --accent: #5e5ce6;
+      --accent-strong: #7674ff;   /* hover / lifted state */
+      --accent-soft: rgba(94, 92, 230, 0.12);
+      --accent-glow: rgba(94, 92, 230, 0.22);
+
+      /* Spacing scale */
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.5rem;
+      --space-6: 2rem;
+      --space-7: 3rem;
+      --space-8: 4.5rem;
+      --space-9: 7rem;
+
+      /* Shape */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+
+      /* Layout */
+      --content-max: 68rem;
+      --nav-height: 4rem;
+      --nav-height-condensed: 3.25rem;
+
+      /* Motion */
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Dark theme (default) */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0b0b0c;
+      --bg-raised: #121214;
+      --bg-inset: #08080a;
+      --text: #f0f0f2;
+      --text-muted: #9c9ca6;
+      --text-faint: #6b6b76;
+      --border: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --nav-bg: rgba(11, 11, 12, 0.72);
+      --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 32px rgba(0, 0, 0, 0.28);
+      --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.45), 0 16px 48px rgba(0, 0, 0, 0.4);
+      --btn-primary-text: #ffffff;
+      --hero-glow-opacity: 1;
+    }
+
+    /* Light theme */
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #fafafa;
+      --bg-raised: #ffffff;
+      --bg-inset: #f1f1f3;
+      --text: #17171c;
+      --text-muted: #5c5c66;
+      --text-faint: #8e8e99;
+      --border: rgba(20, 20, 30, 0.10);
+      --border-strong: rgba(20, 20, 30, 0.18);
+      --nav-bg: rgba(250, 250, 250, 0.78);
+      --shadow-card: 0 1px 2px rgba(20, 20, 40, 0.06), 0 8px 28px rgba(20, 20, 40, 0.07);
+      --shadow-lift: 0 2px 4px rgba(20, 20, 40, 0.08), 0 16px 44px rgba(20, 20, 40, 0.12);
+      --btn-primary-text: #ffffff;
+      --hero-glow-opacity: 0.55;
+    }
+
+    /* ============================================================
+       2. BASE
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    /* Anchor targets clear the sticky nav */
+    [id] { scroll-margin-top: calc(var(--nav-height) + 1.5rem); }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-feature-settings: "cv11", "ss01";
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      margin: 0 0 var(--space-4);
+      font-weight: 650;
+      text-wrap: balance;
+    }
+
+    p { margin: 0 0 var(--space-4); }
+
+    a { color: inherit; }
+
+    img, svg { display: block; }
+
+    /* Visible focus for keyboard users */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    ::selection { background: var(--accent); color: #fff; }
+
+    .container {
+      max-width: var(--content-max);
+      margin-inline: auto;
+      padding-inline: var(--space-5);
+    }
+
+    section { padding-block: var(--space-9); }
+
+    .section-kicker {
+      display: inline-block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: var(--space-3);
+    }
+
+    .section-title { font-size: clamp(1.75rem, 4vw, 2.5rem); }
+
+    .section-lede {
+      color: var(--text-muted);
+      font-size: 1.0625rem;
+      max-width: 34rem;
+    }
+
+    /* Skip link: hidden until focused */
+    .skip-link {
+      position: absolute;
+      top: 0.5rem; left: 0.5rem;
+      z-index: 100;
+      padding: 0.6rem 1rem;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #fff;
+      font-weight: 550;
+      text-decoration: none;
+      transform: translateY(-200%);
+    }
+    .skip-link:focus { transform: none; }
+
+    /* ============================================================
+       3. BUTTONS
+       ============================================================ */
+    /* Snappy taps on touch devices; we provide our own pressed states */
+    a, button {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: 0.7rem 1.35rem;
+      border-radius: var(--radius-md);
+      font-size: 0.9375rem;
+      font-weight: 550;
+      text-decoration: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background-color 0.18s ease, border-color 0.18s ease,
+                  transform 0.18s var(--ease-out), box-shadow 0.18s ease;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--btn-primary-text);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.06) inset,
+                  0 8px 24px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      background: var(--accent-strong);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.08) inset,
+                  0 10px 32px var(--accent-glow);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+    .btn-ghost:hover {
+      border-color: var(--text-faint);
+      background: var(--accent-soft);
+    }
+
+    .btn-small { padding: 0.45rem 0.95rem; font-size: 0.875rem; border-radius: var(--radius-sm); }
+
+    /* ============================================================
+       4. NAV
+       ============================================================ */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--nav-bg);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.25s ease;
+    }
+    .nav.scrolled { border-bottom-color: var(--border); }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      height: var(--nav-height);
+      transition: height 0.25s var(--ease-out);
+    }
+    .nav.scrolled .nav-inner { height: var(--nav-height-condensed); }
+
+    .wordmark {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-weight: 650;
+      font-size: 1.0625rem;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+    .wordmark svg { width: 24px; height: 24px; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-5);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .nav-links a:not(.btn) {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: color 0.15s ease;
+    }
+    .nav-links a:not(.btn):hover { color: var(--text); }
+
+    /* Theme toggle */
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--border-strong); }
+    /* Show the icon of the theme you'd switch TO */
+    [data-theme="dark"] .icon-moon { display: none; }
+    [data-theme="light"] .icon-sun { display: none; }
+
+    /* Collapse text links on small screens; keep the essentials */
+    @media (max-width: 47.9rem) {
+      .nav-link-collapsible { display: none; }
+    }
+
+    /* ============================================================
+       5. HERO
+       ============================================================ */
+    .hero {
+      position: relative;
+      padding-block: var(--space-8) var(--space-9);
+      text-align: center;
+      overflow: clip;
+    }
+
+    /* Soft radial accent glow behind the hero — atmosphere, not decoration */
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: -20% -10% auto;
+      height: 32rem;
+      background:
+        radial-gradient(42rem 22rem at 50% 0%, var(--accent-glow), transparent 70%);
+      opacity: var(--hero-glow-opacity);
+      pointer-events: none;
+    }
+
+    .hero .container { position: relative; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.3rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      background: var(--bg-raised);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: var(--space-5);
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 7vw, 4.25rem);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      margin-bottom: var(--space-4);
+    }
+    .hero h1 .accent { color: var(--accent); }
+
+    .hero-sub {
+      font-size: clamp(1.0625rem, 2vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 36rem;
+      margin-inline: auto;
+      margin-bottom: var(--space-6);
+    }
+
+    .hero-ctas {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+
+    .hero-trust {
+      font-size: 0.875rem;
+      color: var(--text-faint);
+      margin-bottom: var(--space-8);
+    }
+
+    /* --- Hero visual: stylized menu bar + text field mock --- */
+    .hero-visual {
+      max-width: 40rem;
+      margin-inline: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--bg-raised);
+      box-shadow: var(--shadow-lift);
+      overflow: hidden;
+      text-align: left;
+    }
+
+    /* Fake menu bar */
+    .mock-menubar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--space-4);
+      padding: 0.55rem 1rem;
+      background: var(--bg-inset);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+      color: var(--text-faint);
+    }
+    .mock-menubar .mark { width: 18px; height: 18px; }
+    .mock-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.2rem 0.7rem;
+      border-radius: var(--radius-pill);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 550;
+    }
+
+    /* Animated listening bars */
+    .wave-bars { display: inline-flex; align-items: center; gap: 2px; height: 12px; }
+    .wave-bars span {
+      width: 2.5px;
+      border-radius: 2px;
+      background: var(--accent);
+      animation: wave 1.1s ease-in-out infinite;
+    }
+    .wave-bars span:nth-child(1) { height: 5px;  animation-delay: 0s; }
+    .wave-bars span:nth-child(2) { height: 11px; animation-delay: 0.15s; }
+    .wave-bars span:nth-child(3) { height: 7px;  animation-delay: 0.3s; }
+    .wave-bars span:nth-child(4) { height: 12px; animation-delay: 0.45s; }
+    .wave-bars span:nth-child(5) { height: 6px;  animation-delay: 0.6s; }
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.5); }
+      50% { transform: scaleY(1); }
+    }
+
+    /* Fake focused text field where words appear */
+    .mock-field-wrap { padding: var(--space-5); }
+    .mock-field-label {
+      font-size: 0.75rem;
+      font-weight: 550;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: var(--space-2);
+    }
+    .mock-field {
+      min-height: 5.5rem;
+      padding: var(--space-4);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      font-size: 0.9375rem;
+      color: var(--text);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .caret {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      margin-left: 1px;
+      background: var(--accent);
+      vertical-align: text-bottom;
+      animation: blink 1.05s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .mock-hotkey {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: var(--space-3);
+      font-size: 0.8125rem;
+      color: var(--text-faint);
+    }
+    .kbd {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border: 1px solid var(--border-strong);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      background: var(--bg-raised);
+      font-size: 0.78rem;
+      font-weight: 550;
+      color: var(--text-muted);
+    }
+
+    /* ============================================================
+       6. HOW IT WORKS
+       ============================================================ */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-5);
+      margin-top: var(--space-7);
+    }
+    @media (max-width: 47.9rem) {
+      .steps { grid-template-columns: 1fr; }
+    }
+
+    .step {
+      position: relative;
+      padding: var(--space-5);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--bg-raised);
+    }
+    .step-num {
+      position: absolute;
+      top: var(--space-5);
+      right: var(--space-5);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .step-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: var(--radius-md);
+      background: var(--accent-soft);
+      color: var(--accent);
+      margin-bottom: var(--space-4);
+    }
+    .step h3 { font-size: 1.0625rem; margin-bottom: var(--space-2); }
+    .step p { color: var(--text-muted); font-size: 0.9375rem; margin: 0; }
+
+    /* ============================================================
+       7. FEATURES
+       ============================================================ */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+      margin-top: var(--space-7);
+    }
+    @media (max-width: 63.9rem) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 44rem)   { .features-grid { grid-template-columns: 1fr; } }
+
+    .feature {
+      padding: var(--space-5);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--bg-raised);
+      box-shadow: var(--shadow-card);
+      transition: border-color 0.2s ease, transform 0.25s var(--ease-out), box-shadow 0.25s ease;
+    }
+    .feature:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lift);
+    }
+    .feature .step-icon { margin-bottom: var(--space-3); }
+    .feature h3 { font-size: 1rem; margin-bottom: var(--space-2); }
+    .feature p { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+
+    /* ============================================================
+       8. MODELS STRIP
+       ============================================================ */
+    .models {
+      border-block: 1px solid var(--border);
+      background: var(--bg-inset);
+      text-align: center;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--space-3);
+      margin: var(--space-6) 0 var(--space-4);
+      padding: 0;
+      list-style: none;
+    }
+    .pill {
+      padding: 0.5rem 1.15rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-pill);
+      background: var(--bg-raised);
+      font-size: 0.9375rem;
+      font-weight: 550;
+    }
+    .models-note {
+      font-size: 0.9rem;
+      color: var(--text-faint);
+      max-width: 36rem;
+      margin-inline: auto;
+    }
+
+    /* ============================================================
+       9. PRIVACY BAND
+       ============================================================ */
+    .privacy-band {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background:
+        radial-gradient(36rem 18rem at 15% 0%, var(--accent-soft), transparent 65%),
+        var(--bg-raised);
+      padding: var(--space-7) var(--space-6);
+      box-shadow: var(--shadow-card);
+    }
+    .privacy-band h2 { font-size: clamp(1.5rem, 3.5vw, 2.125rem); max-width: 26rem; }
+    .privacy-band > p { color: var(--text-muted); max-width: 36rem; }
+
+    .privacy-points {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4) var(--space-5);
+      margin: var(--space-6) 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    @media (max-width: 47.9rem) { .privacy-points { grid-template-columns: 1fr; } }
+    .privacy-points li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+    }
+    .privacy-points svg { flex-shrink: 0; margin-top: 0.2rem; color: var(--accent); }
+    .privacy-points strong { color: var(--text); font-weight: 600; }
+
+    /* ============================================================
+       10. FAQ ACCORDION
+       ============================================================ */
+    .faq-list {
+      margin-top: var(--space-7);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--bg-raised);
+      overflow: hidden;
+    }
+    .faq-item + .faq-item { border-top: 1px solid var(--border); }
+    .faq-item h3 { margin: 0; }
+
+    .faq-q {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      width: 100%;
+      padding: var(--space-5);
+      background: none;
+      border: 0;
+      font: inherit;
+      font-size: 1rem;
+      font-weight: 550;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    .faq-q:hover { background: var(--accent-soft); }
+    .faq-q:focus-visible { outline-offset: -2px; }
+
+    .faq-chevron {
+      flex-shrink: 0;
+      color: var(--text-faint);
+      transition: transform 0.25s var(--ease-out);
+    }
+    .faq-q[aria-expanded="true"] .faq-chevron { transform: rotate(180deg); }
+
+    /* Animate open/close with the grid-rows trick */
+    .faq-a {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.3s var(--ease-out);
+    }
+    .faq-item.open .faq-a { grid-template-rows: 1fr; }
+    .faq-a-inner { overflow: hidden; }
+    .faq-a p {
+      margin: 0;
+      padding: 0 var(--space-5) var(--space-5);
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+      max-width: 44rem;
+    }
+
+    /* ============================================================
+       11. FINAL CTA + FOOTER
+       ============================================================ */
+    .final-cta { text-align: center; }
+    .final-cta h2 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -0.03em; }
+    .final-cta p { color: var(--text-muted); margin-bottom: var(--space-6); }
+
+    .footer {
+      border-top: 1px solid var(--border);
+      padding-block: var(--space-7);
+      font-size: 0.875rem;
+      color: var(--text-faint);
+    }
+    .footer-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+    .footer-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-5);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .footer-nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .footer-nav a:hover { color: var(--text); }
+    .footer-bottom {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: var(--space-3);
+    }
+    .footer-bottom p { margin: 0; }
+
+    /* ============================================================
+       12. SCROLL REVEAL
+       Elements with [data-reveal] fade/slide in when they enter
+       the viewport. JS adds .revealed; if JS or IO is unavailable
+       everything stays visible (the class below only applies once
+       JS tags <html> with .js-reveal).
+       ============================================================ */
+    html.js-reveal [data-reveal] {
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+      transition-delay: var(--reveal-delay, 0s);
+    }
+    html.js-reveal [data-reveal].revealed {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ============================================================
+       13. REDUCED MOTION
+       ============================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      html.js-reveal [data-reveal] { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <a class="skip-link" href="#top">Skip to content</a>
+
+  <!-- Shared SVG sprite: icons referenced below via <use> -->
+  <svg width="0" height="0" style="position: absolute;" aria-hidden="true" focusable="false">
+    <defs>
+      <!-- Scriva waveform mark -->
+      <symbol id="i-wave" viewBox="0 0 128 128">
+        <path d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64"
+              stroke="#5e5ce6" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m6 9 6 6 6-6"/>
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6 9 17l-5-5"/>
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- ============================ NAV ============================ -->
+  <header class="nav" id="site-nav">
+    <div class="container nav-inner">
+      <a class="wordmark" href="#top" aria-label="Scriva — home" translate="no">
+        <!-- Scriva waveform mark -->
+        <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false"><use href="#i-wave"/></svg>
+        Scriva
+      </a>
+
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li class="nav-link-collapsible"><a href="#features">Features</a></li>
+          <li class="nav-link-collapsible"><a href="#how-it-works">How it works</a></li>
+          <li class="nav-link-collapsible"><a href="#faq">FAQ</a></li>
+          <li>
+            <!-- PLACEHOLDER: swap this URL -->
+            <a href="https://github.com/USER/scriva" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M12 1.5l3.09 6.26 6.91 1-5 4.87 1.18 6.87L12 17.25 5.82 20.5 7 13.63l-5-4.87 6.91-1L12 1.5z"/>
+              </svg>
+              GitHub
+            </a>
+          </li>
+          <li>
+            <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to light theme">
+              <!-- sun: shown in dark mode (switch to light) -->
+              <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="4"/>
+                <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+              </svg>
+              <!-- moon: shown in light mode (switch to dark) -->
+              <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>
+              </svg>
+            </button>
+          </li>
+          <li>
+            <!-- PLACEHOLDER: swap this URL -->
+            <a class="btn btn-primary btn-small" href="#download">Download</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ============================ HERO ============================ -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container">
+        <p class="hero-badge" data-reveal>
+          <span class="dot" aria-hidden="true"></span>
+          Open source voice dictation for macOS
+        </p>
+
+        <h1 id="hero-title" data-reveal style="--reveal-delay: 0.05s">
+          Speak. It writes. <span class="accent">Cleanly.</span>
+        </h1>
+
+        <p class="hero-sub" data-reveal style="--reveal-delay: 0.1s">
+          Hold a hotkey, say what you mean, and Scriva types the polished version
+          into whatever app you’re using — no filler words, no fixing punctuation after.
+        </p>
+
+        <div class="hero-ctas" data-reveal style="--reveal-delay: 0.15s">
+          <!-- PLACEHOLDER: swap this URL -->
+          <a class="btn btn-primary" href="#download" id="download">
+            <svg width="15" height="15" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>
+            Download for macOS
+          </a>
+          <!-- PLACEHOLDER: swap this URL -->
+          <a class="btn btn-ghost" href="https://github.com/USER/scriva" rel="noopener">View on GitHub</a>
+        </div>
+
+        <p class="hero-trust" data-reveal style="--reveal-delay: 0.2s">
+          Open source&ensp;·&ensp;Bring your own key&ensp;·&ensp;No subscription
+        </p>
+
+        <!-- Abstract product visual: menu bar + focused text field. No real-app screenshots. -->
+        <div class="hero-visual" data-reveal style="--reveal-delay: 0.25s" role="img"
+             aria-label="Illustration of Scriva in the macOS menu bar while dictated text appears in a focused text field">
+          <div class="mock-menubar" aria-hidden="true">
+            <span class="mock-status">
+              <span class="wave-bars"><span></span><span></span><span></span><span></span><span></span></span>
+              Listening
+            </span>
+            <svg class="mark" viewBox="0 0 128 128"><use href="#i-wave"/></svg>
+            <span>9:41&nbsp;AM</span>
+          </div>
+          <div class="mock-field-wrap" aria-hidden="true">
+            <p class="mock-field-label">Any text field, any app</p>
+            <div class="mock-field"><span id="typed-text">Ship the release notes by Friday, and let’s keep them short.</span><span class="caret"></span></div>
+            <p class="mock-hotkey"><span class="kbd">⌥</span><span class="kbd">Space</span> held — release to finish</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================== HOW IT WORKS ======================== -->
+    <section id="how-it-works" aria-labelledby="how-title">
+      <div class="container">
+        <p class="section-kicker" data-reveal>How it works</p>
+        <h2 class="section-title" id="how-title" data-reveal>Three steps. About two seconds.</h2>
+        <p class="section-lede" data-reveal>No windows to open, nothing to copy-paste. Scriva lives in your menu bar and works wherever your cursor is.</p>
+
+        <ol class="steps" style="list-style: none; padding: 0;">
+          <li class="step" data-reveal>
+            <span class="step-num" aria-hidden="true">01</span>
+            <span class="step-icon" aria-hidden="true">
+              <!-- microphone line icon -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="2" width="6" height="12" rx="3"/>
+                <path d="M5 10a7 7 0 0 0 14 0M12 17v4m-4 0h8"/>
+              </svg>
+            </span>
+            <h3>Hold your hotkey and speak</h3>
+            <p>Press and hold from any app. Talk like you talk — pauses, “ums” and all.</p>
+          </li>
+          <li class="step" data-reveal style="--reveal-delay: 0.08s">
+            <span class="step-num" aria-hidden="true">02</span>
+            <span class="step-icon" aria-hidden="true">
+              <!-- sparkle / polish line icon -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/>
+                <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z"/>
+              </svg>
+            </span>
+            <h3>Scriva transcribes and polishes</h3>
+            <p>Your speech becomes text, then gets cleaned up: filler removed, punctuation fixed, formatting sorted.</p>
+          </li>
+          <li class="step" data-reveal style="--reveal-delay: 0.16s">
+            <span class="step-num" aria-hidden="true">03</span>
+            <span class="step-icon" aria-hidden="true">
+              <!-- cursor / text-insert line icon -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9m6-16h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2"/>
+                <path d="M3 9h3m12 0h3M3 15h3m12 0h3"/>
+              </svg>
+            </span>
+            <h3>Clean text appears at your cursor</h3>
+            <p>Release the key and finished text lands right where you were typing. Email, Slack, your editor — anywhere.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ========================== FEATURES ========================== -->
+    <section id="features" aria-labelledby="features-title">
+      <div class="container">
+        <p class="section-kicker" data-reveal>Features</p>
+        <h2 class="section-title" id="features-title" data-reveal>Everything you need. Nothing watching you.</h2>
+        <p class="section-lede" data-reveal>Scriva does one job extremely well, and it does it on your terms.</p>
+
+        <div class="features-grid">
+          <article class="feature" data-reveal>
+            <span class="step-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8m-4-3v3"/>
+              </svg>
+            </span>
+            <h3>Works in every app</h3>
+            <p>Scriva types at your cursor, system-wide. If you can type there, you can talk there.</p>
+          </article>
+
+          <article class="feature" data-reveal style="--reveal-delay: 0.05s">
+            <span class="step-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7h16M4 12h10M4 17h13"/><path d="M19 14l1.5 1.5L23 13" transform="translate(-2 1)"/>
+              </svg>
+            </span>
+            <h3>Transcribe + polish</h3>
+            <p>Not a raw dump. Filler words gone, punctuation fixed, formatting cleaned — finished text, first try.</p>
+          </article>
+
+          <article class="feature" data-reveal style="--reveal-delay: 0.1s">
+            <span class="step-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 10a4 4 0 1 0-4 4h.5"/><path d="M14 10l7 7-2 2-2-2-1 1-2-2"/>
+              </svg>
+            </span>
+            <h3>Bring your own key</h3>
+            <p>Transcribe with Groq or OpenAI. Polish with Claude, OpenAI, or Gemini. Your keys, your choice, your bill — usually pennies.</p>
+          </article>
+
+          <article class="feature" data-reveal style="--reveal-delay: 0.15s">
+            <span class="step-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l8 3v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3z"/><path d="M9 12l2 2 4-4"/>
+              </svg>
+            </span>
+            <h3>Privacy-first</h3>
+            <p>No telemetry, no accounts, no middleman. Your audio and text go to the provider you chose — and nowhere else.</p>
+          </article>
+
+          <article class="feature" data-reveal style="--reveal-delay: 0.2s">
+            <span class="step-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/>
+              </svg>
+            </span>
+            <h3>Fast</h3>
+            <p>Built for low latency, end to end. Release the key and your text appears almost instantly.</p>
+          </article>
+
+          <article class="feature" data-reveal style="--reveal-delay: 0.25s">
+            <span class="step-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 8l-4 4 4 4m8-8 4 4-4 4M14 5l-4 14"/>
+              </svg>
+            </span>
+            <h3>Open source &amp; free</h3>
+            <p>MIT licensed. Read the code, audit it, fork it, make it yours. No trial, no tier, no catch.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= MODELS STRIP ======================= -->
+    <section class="models" aria-labelledby="models-title">
+      <div class="container">
+        <h2 class="section-title" id="models-title" data-reveal>Use the models you want</h2>
+        <p class="section-lede" data-reveal style="margin-inline: auto;">
+          Scriva is model-agnostic. Plug in the providers you already trust — and switch anytime.
+        </p>
+        <ul class="pill-row" data-reveal>
+          <li class="pill">Groq</li>
+          <li class="pill">OpenAI</li>
+          <li class="pill">Anthropic Claude</li>
+          <li class="pill">Google Gemini</li>
+        </ul>
+        <p class="models-note" data-reveal>
+          Transcription runs on Groq or OpenAI. Cleanup can use Claude, OpenAI, or Gemini —
+          or be turned off entirely if you want the raw transcript.
+        </p>
+      </div>
+    </section>
+
+    <!-- ======================= PRIVACY BAND ======================= -->
+    <section aria-labelledby="privacy-title">
+      <div class="container">
+        <div class="privacy-band" data-reveal>
+          <p class="section-kicker">Yours, all the way down</p>
+          <h2 id="privacy-title">Software that answers to you, not a subscription.</h2>
+          <p>
+            There’s no Scriva backend. Nothing phones home. Your audio and text travel one route:
+            straight from your Mac to the provider you picked, using your own key.
+            Don’t take our word for it — the code is public.
+          </p>
+          <ul class="privacy-points">
+            <li>
+              <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
+              <span><strong>No subscription.</strong> Free, forever. You only pay your provider’s per-use rates.</span>
+            </li>
+            <li>
+              <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
+              <span><strong>No telemetry.</strong> No analytics, no crash reporters, no “anonymous usage data.”</span>
+            </li>
+            <li>
+              <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
+              <span><strong>Your keys, your data.</strong> Keys stay on your machine. Audio goes only to your chosen provider.</span>
+            </li>
+            <li>
+              <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
+              <span><strong>MIT licensed.</strong> Use it, ship it, fork it — commercially, personally, however.</span>
+            </li>
+            <li>
+              <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
+              <span><strong>Auditable.</strong> Every line is on GitHub for anyone to read.</span>
+            </li>
+            <li>
+              <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
+              <span><strong>No account.</strong> Download, paste a key, start talking. That's the whole setup.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ FAQ ============================ -->
+    <section id="faq" aria-labelledby="faq-title">
+      <div class="container">
+        <p class="section-kicker" data-reveal>FAQ</p>
+        <h2 class="section-title" id="faq-title" data-reveal>Questions, answered</h2>
+
+        <div class="faq-list" data-reveal>
+          <div class="faq-item">
+            <h3>
+              <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-a1" id="faq-q1">
+                Is it really free?
+                <svg class="faq-chevron" width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>
+              </button>
+            </h3>
+            <div class="faq-a" id="faq-a1" role="region" aria-labelledby="faq-q1">
+              <div class="faq-a-inner">
+                <p>Yes. Scriva is MIT-licensed open source — no trial, no pro tier, no locked features. The only cost is what your AI provider charges for the requests you make with your own key, which for typical dictation is a matter of cents per month.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <h3>
+              <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-a2" id="faq-q2">
+                What’s “bring your own key” and do I need one?
+                <svg class="faq-chevron" width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>
+              </button>
+            </h3>
+            <div class="faq-a" id="faq-a2" role="region" aria-labelledby="faq-q2">
+              <div class="faq-a-inner">
+                <p>Scriva doesn’t run its own servers — it sends your audio directly to an AI provider using an API key you supply. You’ll need at least one key (Groq or OpenAI) for transcription; Groq offers free keys and takes about two minutes to set up. Paste it into Scriva’s settings once and you’re done.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <h3>
+              <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-a3" id="faq-q3">
+                Which platforms are supported?
+                <svg class="faq-chevron" width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>
+              </button>
+            </h3>
+            <div class="faq-a" id="faq-a3" role="region" aria-labelledby="faq-q3">
+              <div class="faq-a-inner">
+                <p>macOS today. Windows and Linux are planned — the core is built to be portable. Watch the GitHub repo for progress.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <h3>
+              <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-a4" id="faq-q4">
+                Is my voice or audio stored anywhere?
+                <svg class="faq-chevron" width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>
+              </button>
+            </h3>
+            <div class="faq-a" id="faq-a4" role="region" aria-labelledby="faq-q4">
+              <div class="faq-a-inner">
+                <p>Not by Scriva. Audio is captured, sent once to the provider you chose for transcription, and discarded. There’s no Scriva backend, no logging of audio or transcripts, and no telemetry. Your relationship with the AI provider is governed by their terms — which you picked, with your own account.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <h3>
+              <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-a5" id="faq-q5">
+                What does “polish” actually do?
+                <svg class="faq-chevron" width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>
+              </button>
+            </h3>
+            <div class="faq-a" id="faq-a5" role="region" aria-labelledby="faq-q5">
+              <div class="faq-a-inner">
+                <p>After transcription, an optional cleanup pass removes filler words (“um”, “uh”, false starts), fixes punctuation and capitalization, and tidies formatting — while keeping your words and meaning intact. It runs on Claude, OpenAI, or Gemini with your key, and you can turn it off for raw transcripts.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <h3>
+              <button class="faq-q" type="button" aria-expanded="false" aria-controls="faq-a6" id="faq-q6">
+                Do I need to know how to code to use it?
+                <svg class="faq-chevron" width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>
+              </button>
+            </h3>
+            <div class="faq-a" id="faq-a6" role="region" aria-labelledby="faq-q6">
+              <div class="faq-a-inner">
+                <p>No. Download the app, paste an API key into settings, grant microphone and accessibility permissions, and start dictating. The code being open is for those who want to look — not a requirement to use it.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================= FINAL CTA ========================= -->
+    <section class="final-cta" aria-labelledby="cta-title">
+      <div class="container">
+        <h2 id="cta-title" data-reveal>Stop typing. Start talking.</h2>
+        <p data-reveal style="--reveal-delay: 0.05s">Your voice, typed and polished — anywhere on your Mac.</p>
+        <div class="hero-ctas" data-reveal style="--reveal-delay: 0.1s">
+          <!-- PLACEHOLDER: swap this URL -->
+          <a class="btn btn-primary" href="#download">
+            <svg width="15" height="15" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>
+            Download for macOS
+          </a>
+          <!-- PLACEHOLDER: swap this URL -->
+          <a class="btn btn-ghost" href="https://github.com/USER/scriva" rel="noopener">View on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =========================== FOOTER =========================== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <a class="wordmark" href="#top" aria-label="Scriva — back to top" translate="no">
+          <svg viewBox="0 0 128 128" aria-hidden="true" focusable="false"><use href="#i-wave"/></svg>
+          Scriva
+        </a>
+        <nav aria-label="Footer">
+          <ul class="footer-nav">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How it works</a></li>
+            <li><a href="#faq">FAQ</a></li>
+            <!-- PLACEHOLDER: swap this URL -->
+            <li><a href="https://github.com/USER/scriva" rel="noopener">GitHub</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="footer-bottom">
+        <p>MIT Licensed&ensp;·&ensp;© 2026 Soltan Garayev</p>
+        <p>Built for people who’d rather talk than type.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    /* ============================================================
+       Scriva landing page — vanilla JS
+       1. Theme toggle (localStorage-persisted, degrades gracefully)
+       2. Sticky nav condensation on scroll
+       3. Scroll-reveal via IntersectionObserver
+       4. FAQ accordion
+       5. Hero typewriter (respects prefers-reduced-motion)
+       ============================================================ */
+    (function () {
+      'use strict';
+
+      var root = document.documentElement;
+      var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      /* ---------- 1. Theme toggle ---------- */
+      var THEME_KEY = 'scriva-theme';
+
+      function readStoredTheme() {
+        try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; }
+      }
+      function storeTheme(theme) {
+        try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* private mode etc. — ignore */ }
+      }
+      function applyTheme(theme) {
+        root.setAttribute('data-theme', theme);
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+          toggle.setAttribute('aria-label',
+            theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+        }
+        // Keep the browser chrome color in sync with the page background
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0b0c' : '#fafafa');
+      }
+
+      // Default is dark (set in the HTML); honor a stored preference if any.
+      var stored = readStoredTheme();
+      if (stored === 'light' || stored === 'dark') applyTheme(stored);
+
+      var themeToggle = document.getElementById('theme-toggle');
+      if (themeToggle) {
+        themeToggle.addEventListener('click', function () {
+          var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          applyTheme(next);
+          storeTheme(next);
+        });
+      }
+
+      /* ---------- 2. Nav condensation ---------- */
+      var nav = document.getElementById('site-nav');
+      var navTicking = false;
+      function updateNav() {
+        nav.classList.toggle('scrolled', window.scrollY > 8);
+        navTicking = false;
+      }
+      if (nav) {
+        window.addEventListener('scroll', function () {
+          if (!navTicking) {
+            navTicking = true;
+            window.requestAnimationFrame(updateNav);
+          }
+        }, { passive: true });
+        updateNav();
+      }
+
+      /* ---------- 3. Scroll reveal ---------- */
+      // Only hide elements once we know JS is running and IO is available,
+      // so content is never invisible without JS.
+      if ('IntersectionObserver' in window && !reducedMotion) {
+        root.classList.add('js-reveal');
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('revealed');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12, rootMargin: '0px 0px -5% 0px' });
+
+        document.querySelectorAll('[data-reveal]').forEach(function (el) {
+          observer.observe(el);
+        });
+      }
+
+      /* ---------- 4. FAQ accordion ---------- */
+      document.querySelectorAll('.faq-q').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var expanded = btn.getAttribute('aria-expanded') === 'true';
+          btn.setAttribute('aria-expanded', String(!expanded));
+          btn.closest('.faq-item').classList.toggle('open', !expanded);
+        });
+      });
+
+      /* ---------- 5. Hero typewriter ---------- */
+      // Types example sentences into the mock text field. Static text is
+      // present in the HTML, so reduced-motion users (and no-JS) see a
+      // complete sentence instead of an animation.
+      var typedEl = document.getElementById('typed-text');
+      if (typedEl && !reducedMotion) {
+        var phrases = [
+          "Ship the release notes by Friday, and let’s keep them short.",
+          "Thanks for the review — I’ll address both comments today.",
+          "Add a follow-up meeting with the design team next Tuesday.",
+          "Sounds great. Let’s move forward with the second option."
+        ];
+        var phraseIndex = 0;
+        var charIndex = 0;
+        var typing = true;
+
+        function tick() {
+          var phrase = phrases[phraseIndex];
+          if (typing) {
+            charIndex++;
+            typedEl.textContent = phrase.slice(0, charIndex);
+            if (charIndex >= phrase.length) {
+              typing = false;
+              setTimeout(tick, 2600); // linger on the finished sentence
+              return;
+            }
+            setTimeout(tick, 34 + Math.random() * 40); // human-ish cadence
+          } else {
+            // Clear quickly, like text being replaced, then start the next phrase.
+            charIndex = 0;
+            typedEl.textContent = '';
+            typing = true;
+            phraseIndex = (phraseIndex + 1) % phrases.length;
+            setTimeout(tick, 500);
+          }
+        }
+        setTimeout(tick, 1400); // let the reveal animation settle first
+      }
+    })();
+  </script>
+</body>
+</html>

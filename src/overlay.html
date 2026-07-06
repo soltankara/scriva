@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- Recording indicator overlay. Shown by the Rust shell (window label
+     "overlay") while the hotkey is held; pure CSS, no Tauri API usage,
+     so it needs no capability grants. Click-through + non-focusable is
+     enforced on the Rust side. Always dark — it floats over arbitrary
+     content, not over our UI. -->
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    -webkit-user-select: none;
+    cursor: default;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 17px;
+    background: rgba(28, 28, 30, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+  .bars {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .bars span {
+    width: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.85);
+    animation: bounce 0.9s ease-in-out infinite alternate;
+  }
+  /* Decorative rhythm — bars are not driven by real mic levels. */
+  .bars span:nth-child(1) { height: 6px;  animation-delay: 0s; }
+  .bars span:nth-child(2) { height: 12px; animation-delay: 0.15s; }
+  .bars span:nth-child(3) { height: 16px; animation-delay: 0.3s; }
+  .bars span:nth-child(4) { height: 10px; animation-delay: 0.45s; }
+  .bars span:nth-child(5) { height: 7px;  animation-delay: 0.6s; }
+  @keyframes bounce {
+    from { transform: scaleY(1); }
+    to   { transform: scaleY(0.35); }
+  }
+</style>
+</head>
+<body>
+  <div class="pill">
+    <div class="bars"><span></span><span></span><span></span><span></span><span></span></div>
+  </div>
+</body>
+</html>
