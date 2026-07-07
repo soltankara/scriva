@@ -32,32 +32,43 @@
     border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   }
-  .bars {
-    display: flex;
-    align-items: center;
-    gap: 3px;
+  /* The Scriva logo waveform (same path as scriva-icon.svg), stretched to
+     pill proportions; non-scaling-stroke keeps the line weight uniform. */
+  .wave {
+    width: 56px;
+    height: 20px;
+    overflow: visible;
   }
-  .bars span {
-    width: 3px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.85);
-    animation: bounce 0.9s ease-in-out infinite alternate;
+  .wave path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.5px;
+    vector-effect: non-scaling-stroke;
   }
-  /* Decorative rhythm — bars are not driven by real mic levels. */
-  .bars span:nth-child(1) { height: 6px;  animation-delay: 0s; }
-  .bars span:nth-child(2) { height: 12px; animation-delay: 0.15s; }
-  .bars span:nth-child(3) { height: 16px; animation-delay: 0.3s; }
-  .bars span:nth-child(4) { height: 10px; animation-delay: 0.45s; }
-  .bars span:nth-child(5) { height: 7px;  animation-delay: 0.6s; }
-  @keyframes bounce {
-    from { transform: scaleY(1); }
-    to   { transform: scaleY(0.35); }
+  .wave .base {
+    stroke: rgba(126, 124, 245, 0.35);
+  }
+  /* Decorative pulse traveling along the waveform — not driven by real
+     mic levels. pathLength=100 normalizes the dash units. */
+  .wave .pulse {
+    stroke: #8a88ff;
+    stroke-dasharray: 28 72;
+    filter: drop-shadow(0 0 3px rgba(138, 136, 255, 0.8));
+    animation: travel 1.5s linear infinite;
+  }
+  @keyframes travel {
+    from { stroke-dashoffset: 0; }
+    to   { stroke-dashoffset: -100; }
   }
 </style>
 </head>
 <body>
   <div class="pill">
-    <div class="bars"><span></span><span></span><span></span><span></span><span></span></div>
+    <svg class="wave" viewBox="14 22 100 78" preserveAspectRatio="none" aria-hidden="true">
+      <path class="base"  d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64" pathLength="100"></path>
+      <path class="pulse" d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64" pathLength="100"></path>
+    </svg>
   </div>
 </body>
 </html>
