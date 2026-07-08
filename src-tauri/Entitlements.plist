@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Hardened-runtime entitlements for signed/notarized builds (Tauri enables
+     the hardened runtime by default when signing). audio-input is mandatory:
+     without it a hardened app cannot capture the microphone. Deliberately no
+     JIT entitlements (WKWebView JS runs in Apple's own XPC processes) and no
+     app-sandbox (it would break AX text injection and the LaunchAgent). -->
+<dict>
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+</dict>
+</plist>

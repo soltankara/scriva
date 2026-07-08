@@ -85,6 +85,9 @@ scriva/
     │                                #   scriva-core + tauri stack + cpal + tokio + dotenvy
     ├── tauri.conf.json              # App config: identifier com.scriva.app, hidden window,
     │                                #   withGlobalTauri, frontendDist ../src, bundle settings
+    ├── Entitlements.plist           # Hardened-runtime entitlements for signed builds:
+    │                                #   audio-input only (no JIT, no app-sandbox — sandbox
+    │                                #   would break AX injection + LaunchAgent)
     ├── Info.plist                   # NSMicrophoneUsageDescription, LSUIElement (background
     │                                #   agent), CFBundleIdentifier for the dev binary.
     │                                #   Gotcha: edits need a lib.rs touch to re-embed.
