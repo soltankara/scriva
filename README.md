@@ -61,7 +61,7 @@ committed, debug builds only).
 
 ```sh
 cd <repo root>
-find src src-tauri/icons -name '._*' -delete   # sweep AppleDouble junk (exFAT)
+find src src-tauri -name '._*' -delete   # sweep AppleDouble junk (exFAT)
 npm run tauri build
 ```
 
@@ -83,6 +83,9 @@ export APPLE_PASSWORD="<app-specific password>"
 export APPLE_TEAM_ID="<TEAMID>"
 npm run tauri build
 ```
+
+(The sweep matters beyond the embedded `src/` assets: tauri-build also chokes
+on `._*` sidecars in `src-tauri/capabilities/`.)
 
 ## Costs
 

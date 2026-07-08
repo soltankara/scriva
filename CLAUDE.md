@@ -82,6 +82,12 @@ model to `""`.
 | `get_onboarded() -> bool` | First-run flag; drives the onboarding layer in the UI. Stored as a sibling `onboarded` key in the settings store, deliberately outside core's `Settings`. |
 | `set_onboarded()` | Mark onboarding complete. One-way — delete the store file to re-run onboarding. |
 
+Auto-start uses `tauri-plugin-autostart` (LaunchAgent variant): the UI calls
+`plugin:autostart|is_enabled` / `enable` / `disable` directly — the LaunchAgent
+plist is the source of truth, deliberately no mirror field in `Settings`. The
+plist records the absolute `.app` path at enable time (enabling from a dev
+binary points at the dev binary; moving the app breaks it — re-toggle fixes).
+
 UI test-status shape: `{ s: 'idle'|'loading'|'valid'|'invalid', msg }`.
 Hotkey stored as UI tokens (e.g. `["⌥","Space"]`); mapped to plugin
 accelerators (`Alt+Space`) in `config.rs` (⌘→Super, ⌥→Alt, ⌃→Control, ⇧→Shift).
@@ -148,10 +154,12 @@ cargo test -p scriva-core   # core unit tests (audio processing)
   `#[cfg(debug_assertions)]`-gated, so a bundled app only sees keys entered in
   the Settings UI. Don't debug "no key configured" in a release build against
   `.env`.
-- Before `npm run tauri build`, sweep AppleDouble junk:
-  `find src src-tauri/icons -name '._*' -delete` — `generate_context!` embeds
-  everything in `src/` (a stray `._overlay.html` would ship inside the app).
-  Bundle artifacts land in the redirected target dir under
+- Sweep AppleDouble junk after editing files and before builds:
+  `find src src-tauri -name '._*' -delete` — `generate_context!` embeds
+  everything in `src/` (a stray `._overlay.html` would ship inside the app),
+  and tauri-build reads `src-tauri/capabilities/` where a `._default.json`
+  sidecar fails the build ("stream did not contain valid UTF-8"). Bundle
+  artifacts land in the redirected target dir under
   `release/bundle/{macos,dmg}/`. If `codesign` ever complains about
   "detritus", `xattr -cr` the built `.app` and re-check the embedded sources.
 

@@ -325,6 +325,20 @@
     <div id="hkError" class="hk-error hidden"></div>
   </div>
 
+  <!-- General -->
+  <div class="sec">
+    <div class="sec-label">General</div>
+    <div class="card">
+      <div class="row">
+        <div style="flex:1; min-width:0; padding-right:12px;">
+          <div class="row-title">Start Scriva at login</div>
+          <div class="row-sub">Runs quietly in the menu bar — ready whenever you are.</div>
+        </div>
+        <button id="loginSwitch" class="switch" role="switch" aria-checked="false" aria-label="Start at login"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Permissions -->
   <div class="sec">
     <div class="sec-label">Permissions</div>
@@ -690,6 +704,25 @@
     renderClean(); scheduleSave();
   });
 
+  /* "Start at login": the LaunchAgent (tauri-plugin-autostart) is the source
+     of truth — no Settings field to drift. Query on load, toggle on click. */
+  var autostartOn = false;
+  function renderLogin() {
+    $('loginSwitch').classList.toggle('on', autostartOn);
+    $('loginSwitch').setAttribute('aria-checked', autostartOn ? 'true' : 'false');
+  }
+  function refreshAutostart() {
+    invoke('plugin:autostart|is_enabled').then(function (v) {
+      autostartOn = v === true;
+      renderLogin();
+    }).catch(function () {});
+  }
+  $('loginSwitch').addEventListener('click', function () {
+    invoke(autostartOn ? 'plugin:autostart|disable' : 'plugin:autostart|enable')
+      .then(refreshAutostart)
+      .catch(function (err) { toast(String(err)); });
+  });
+
   function openKeyPage(provider) {
     if (TAURI && TAURI.opener && TAURI.opener.openUrl && KEY_URLS[provider]) {
       TAURI.opener.openUrl(KEY_URLS[provider]).catch(function () {});
@@ -950,6 +983,7 @@
 
   refreshPerms();
   setInterval(refreshPerms, 3000);
+  refreshAutostart();
 
   invoke('get_onboarded').then(function (done) {
     if (done === false) startOnboarding();

@@ -98,16 +98,22 @@ scriva/
     │   ├── 32x32.png, 128x128.png, 128x128@2x.png  # Size variants (generated; in bundle.icon)
     │   ├── tray.png                 # Menu-bar glyph, idle. MUST be monochrome-with-alpha:
     │   │                            #   icon_as_template(true) renders alpha channel only.
-    │   └── tray-rec.png             # Menu-bar glyph while recording (bordered variant)
+    │   ├── tray-rec.png             # Menu-bar glyph while recording (bordered variant)
+    │   └── tray-off.png             # Menu-bar glyph while disabled (tray toggle off):
+    │                                #   tray.png at 40% alpha
     └── src/
         ├── main.rs                  # Binary entry point; calls scriva_lib::run()
-        ├── lib.rs                   # App wiring: AppState, global hotkey registration +
-        │                            #   press/release handler, tray creation + recording-icon
-        │                            #   swap, run_pipeline (capture→encode→transcribe→clean→
-        │                            #   inject), builder/setup, first-run window show (when
-        │                            #   not onboarded), Accessory activation policy (set
-        │                            #   BEFORE .run(), never in setup()). CloseRequested
-        │                            #   handler is scoped to the "main" window.
+        ├── lib.rs                   # App wiring: AppState (incl. session-only `enabled`
+        │                            #   toggle), global hotkey registration + press/release
+        │                            #   handler, tray creation (Enabled check item · Settings ·
+        │                            #   Quit) + glyph swap (idle/rec/dimmed), set_enabled
+        │                            #   (unregisters hotkey + aborts capture when off),
+        │                            #   autostart plugin (LaunchAgent), run_pipeline
+        │                            #   (capture→encode→transcribe→clean→inject),
+        │                            #   builder/setup, first-run window show (when not
+        │                            #   onboarded), Accessory activation policy (set BEFORE
+        │                            #   .run(), never in setup()). CloseRequested handler is
+        │                            #   scoped to the "main" window.
         ├── overlay.rs               # Recording-indicator overlay window (label "overlay"):
         │                            #   built once hidden in setup; show()/hide() on hotkey
         │                            #   press/release; click-through + non-focusable; positioned
@@ -117,7 +123,8 @@ scriva/
         ├── menu_width.rs            # macOS-only: widens the tray NSMenu panel. Tauri/muda
         │                            #   expose no NSMenu handle, so it observes
         │                            #   NSMenuDidBeginTrackingNotification (objc2 + block2) and
-        │                            #   calls setMinimumWidth: on our 2-item tray menu.
+        │                            #   calls setMinimumWidth: on our 4-item tray menu (guard
+        │                            #   must stay in sync with the menu built in lib.rs).
         ├── commands.rs              # The nine #[tauri::command] IPC handlers (contract in
         │                            #   CLAUDE.md): load/save settings, test_provider, set_hotkey,
         │                            #   check_permissions, request_microphone, request_accessibility,

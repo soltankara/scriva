@@ -19,6 +19,7 @@ tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-ap
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-autostart = "2"
 serde.workspace = true
 serde_json.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }

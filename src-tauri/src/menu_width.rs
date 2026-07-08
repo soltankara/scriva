@@ -8,9 +8,11 @@
 //!
 //! So we reach the `NSMenu` at runtime: register an `NSNotificationCenter`
 //! observer for `NSMenuDidBeginTrackingNotification`. The notification's `object`
-//! is the menu that began tracking; when it's our two-item tray menu we set its
-//! minimum width. Registration happens once during setup on the main thread; the
-//! observer and its block are intentionally leaked for the app's lifetime.
+//! is the menu that began tracking; when it's our tray menu (Enabled ·
+//! separator · Settings · Quit — separators count toward `numberOfItems`) we
+//! set its minimum width. Registration happens once during setup on the main
+//! thread; the observer and its block are intentionally leaked for the app's
+//! lifetime. **Keep the guard below in sync with the tray menu in `lib.rs`.**
 
 /// Comfortable minimum panel width, in points (CGFloat).
 #[cfg(target_os = "macos")]
@@ -44,10 +46,11 @@ pub fn install() {
             if menu.is_null() {
                 return;
             }
-            // Guard: only our tray menu — exactly two items and the first titled
-            // "Settings". Prevents touching any other NSMenu in the process.
+            // Guard: only our tray menu — exactly four items (Enabled, separator,
+            // Settings, Quit) with the first titled "Enabled". Prevents touching
+            // any other NSMenu in the process.
             let count: isize = msg_send![menu, numberOfItems];
-            if count != 2 {
+            if count != 4 {
                 return;
             }
             let item0: *mut AnyObject = msg_send![menu, itemAtIndex: 0isize];
@@ -58,7 +61,7 @@ pub fn install() {
             if title.is_null() {
                 return;
             }
-            let prefix = ns_string(c"Settings");
+            let prefix = ns_string(c"Enabled");
             let has_prefix: Bool = msg_send![title, hasPrefix: prefix];
             if !has_prefix.as_bool() {
                 return;

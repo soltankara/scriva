@@ -13,6 +13,7 @@
     "global-shortcut:allow-is-registered",
     "store:default",
     "opener:default",
+    "autostart:default",
     {
       "identifier": "opener:allow-open-url",
       "allow": [{ "url": "x-apple.systempreferences:*" }]

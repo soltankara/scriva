@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, RwLock};
 
 use tauri::{
-    menu::{MenuBuilder, MenuItemBuilder},
+    menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
     AppHandle, Emitter, Manager, Runtime, WindowEvent,
 };
@@ -32,6 +32,11 @@ pub struct AppState {
     /// unregister the previous one before registering the new. (Beyond the
     /// minimal AppState spec, but needed to re-register cleanly.)
     pub hotkey: Mutex<Option<Shortcut>>,
+    /// Tray "Enabled" toggle. Session-only (always starts true): a persisted
+    /// disabled state + auto-start would produce a silently useless agent.
+    /// While false the global shortcut is unregistered — the combo is freed
+    /// for other apps, not just swallowed.
+    pub enabled: AtomicBool,
 }
 
 impl AppState {
@@ -41,6 +46,7 @@ impl AppState {
             recorder: Mutex::new(None),
             pipeline_busy: AtomicBool::new(false),
             hotkey: Mutex::new(None),
+            enabled: AtomicBool::new(true),
         }
     }
 }
@@ -66,6 +72,12 @@ pub(crate) fn apply_hotkey<R: Runtime>(app: &AppHandle<R>, combo: &[String]) -> 
     match gs.register(new_shortcut) {
         Ok(()) => {
             *guard = Some(new_shortcut);
+            // While the tray toggle says disabled, a hotkey change must still
+            // validate (conflict check above) and be remembered, but nothing
+            // may stay actively registered until re-enable.
+            if !state.enabled.load(Ordering::SeqCst) {
+                let _ = gs.unregister(new_shortcut);
+            }
             Ok(())
         }
         Err(_) => {
@@ -80,13 +92,20 @@ pub(crate) fn apply_hotkey<R: Runtime>(app: &AppHandle<R>, combo: &[String]) -> 
     }
 }
 
-/// Swap the menu-bar tray icon to reflect recording state: the bordered "rec"
-/// glyph while capturing, the idle glyph otherwise. Both are monochrome template
-/// images, and the template flag can reset on an icon change, so re-assert it.
-/// Any failure (missing tray, undecodable image) is ignored — the tray simply
-/// keeps whatever icon it currently shows.
+/// Swap the menu-bar tray icon to reflect app state: the dimmed glyph while
+/// the tray toggle is off, the bordered "rec" glyph while capturing, the idle
+/// glyph otherwise. All are monochrome template images, and the template flag
+/// can reset on an icon change, so re-assert it. Any failure (missing tray,
+/// undecodable image) is ignored — the tray simply keeps whatever icon it
+/// currently shows.
 fn set_tray_recording<R: Runtime>(app: &AppHandle<R>, recording: bool) {
-    let bytes: &[u8] = if recording {
+    let enabled = app
+        .try_state::<AppState>()
+        .map(|s| s.enabled.load(Ordering::SeqCst))
+        .unwrap_or(true);
+    let bytes: &[u8] = if !enabled {
+        include_bytes!("../icons/tray-off.png")
+    } else if recording {
         include_bytes!("../icons/tray-rec.png")
     } else {
         include_bytes!("../icons/tray.png")
@@ -110,12 +129,52 @@ fn set_tray_recording<R: Runtime>(app: &AppHandle<R>, recording: bool) {
     }
 }
 
+/// Flip the tray "Enabled" toggle. Disabling unregisters the global shortcut
+/// (freeing the combo system-wide) and aborts any in-flight recording;
+/// re-enabling re-registers the combo currently in settings. The tray glyph
+/// dims while disabled.
+fn set_enabled(app: &AppHandle, on: bool) {
+    let state = app.state::<AppState>();
+    state.enabled.store(on, Ordering::SeqCst);
+
+    if on {
+        let combo = state.settings.read().unwrap().hotkey.clone();
+        if let Err(e) = apply_hotkey(app, &combo) {
+            eprintln!("[scriva] re-enable: hotkey registration failed ({e})");
+        } else {
+            eprintln!("[scriva] enabled — hotkey re-registered");
+        }
+    } else {
+        // Unregister whatever is active so the combo is truly freed.
+        if let Some(shortcut) = *state.hotkey.lock().unwrap() {
+            let _ = app.global_shortcut().unregister(shortcut);
+        }
+        // Abort an in-flight recording: drop the recorder (its thread shuts
+        // down with the channel) and reset all recording UI.
+        let had_recording = state.recorder.lock().unwrap().take().is_some();
+        if had_recording {
+            let _ = app.emit_to("main", "recording-state", false);
+            overlay::hide(app);
+            eprintln!("[scriva] disabled mid-recording — capture aborted");
+        } else {
+            eprintln!("[scriva] disabled — hotkey unregistered");
+        }
+    }
+    // Recompute the glyph (dimmed/idle) from the new enabled state.
+    set_tray_recording(app, false);
+}
+
 /// Push-to-talk handler. Pressed starts capture; Released stops it and runs the
 /// transcribe → (optional clean) → inject pipeline off the event thread.
 fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
     let state = app.state::<AppState>();
     match event {
         ShortcutState::Pressed => {
+            // Defense in depth: while disabled the shortcut is unregistered, but
+            // if an unregister ever failed we still must not start capturing.
+            if !state.enabled.load(Ordering::SeqCst) {
+                return;
+            }
             // Debounce key-repeat / re-entry: ignore if busy or already recording.
             if state.pipeline_busy.load(Ordering::SeqCst) {
                 return;
@@ -292,6 +351,13 @@ pub fn run() {
         )
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        // LaunchAgent (not AppleScript: that variant drives System Events and
+        // triggers an Automation TCC prompt). The agent plist is the source of
+        // truth for the login-item state — no mirror field in Settings.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .invoke_handler(tauri::generate_handler![
             commands::load_settings,
             commands::save_settings,
@@ -334,9 +400,20 @@ pub fn run() {
                 eprintln!("[scriva] hotkey registered from settings");
             }
 
+            // Check item auto-toggles its checkmark on click; the handler reads
+            // the new state back from the item itself (cloned into the closure).
+            let enabled_item = CheckMenuItemBuilder::with_id("enabled", "Enabled")
+                .checked(true)
+                .build(app)?;
             let settings_item = MenuItemBuilder::with_id("settings", "Settings").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let menu = MenuBuilder::new(app).item(&settings_item).item(&quit).build()?;
+            let menu = MenuBuilder::new(app)
+                .item(&enabled_item)
+                .separator()
+                .item(&settings_item)
+                .item(&quit)
+                .build()?;
+            let enabled_check = enabled_item.clone();
 
             // Widen the native tray NSMenu panel so labels don't crowd its
             // rounded edge on macOS 26. Title padding (ASCII or NBSP) is trimmed
@@ -354,7 +431,12 @@ pub fn run() {
                 .icon(tray_icon)
                 .icon_as_template(true)
                 .menu(&menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "enabled" => {
+                        // The checkmark already reflects the post-click state.
+                        let on = enabled_check.is_checked().unwrap_or(true);
+                        set_enabled(app, on);
+                    }
                     "settings" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
