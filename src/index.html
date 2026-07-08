@@ -188,6 +188,36 @@
   }
   .toast button { position: absolute; top: 6px; right: 8px; border: none; background: transparent; color: var(--bad); font-size: 14px; }
 
+  /* First-run onboarding — a full-window layer above the settings view.
+     Shown only until set_onboarded; everything underneath stays live. */
+  #onboard {
+    position: fixed; inset: 0; z-index: 60; background: var(--bg);
+    display: flex; flex-direction: column; padding: 24px 24px 20px;
+    animation: vf-fade .2s ease;
+  }
+  .ob-dots { display: flex; gap: 6px; justify-content: center; padding-bottom: 6px; }
+  .ob-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sep); }
+  .ob-dot.on { background: var(--accent); }
+  .ob-body {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; gap: 12px; min-height: 0;
+  }
+  .ob-icon { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; }
+  .ob-icon svg { display: block; }
+  .ob-title { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+  .ob-text { font-size: 13px; line-height: 1.55; color: var(--text2); max-width: 350px; }
+  .ob-keys { display: flex; gap: 5px; justify-content: center; }
+  .ob-keys .keycap { min-width: 30px; height: 32px; font-size: 15px; }
+  .ob-keywrap { width: 100%; max-width: 350px; }
+  .ob-status { min-height: 18px; font-size: 12px; }
+  .ob-foot { display: flex; flex-direction: column; gap: 9px; align-items: center; padding-top: 14px; }
+  .ob-btn {
+    width: 100%; max-width: 320px; padding: 11px; border-radius: 10px; border: none;
+    background: var(--accent); color: #fff; font-size: 14px; font-weight: 600;
+  }
+  .ob-btn:disabled { opacity: .45; cursor: default; }
+  .ob-link { border: none; background: transparent; color: var(--text3); font-size: 12.5px; font-weight: 500; min-height: 16px; }
+
   .overlay { position: fixed; inset: 0; z-index: 20; }
   .hidden { display: none !important; }
 </style>
@@ -340,6 +370,9 @@
 
   <div class="privacy">Your key, your data. Audio goes only to the provider you chose — nothing else leaves your Mac. No accounts, no telemetry.</div>
 </div>
+
+<!-- First-run onboarding layer; populated and driven by renderOnboard(). -->
+<div id="onboard" class="hidden"></div>
 
 <div id="savedChip" class="saved-chip hidden">✓ Saved</div>
 
@@ -632,7 +665,13 @@
 
   function refreshPerms() {
     invoke('check_permissions').then(function (p) {
-      if (p) { state.perms = p; renderPerms(); }
+      if (p) {
+        state.perms = p;
+        renderPerms();
+        /* Live-update the onboarding permission steps (no inputs there, so a
+           re-render is safe; the key step preserves its draft regardless). */
+        if (ob.active && (ob.step === 1 || ob.step === 2)) renderOnboard();
+      }
     }).catch(function () {});
   }
 
@@ -756,6 +795,142 @@
   document.addEventListener('visibilitychange', function () { if (document.hidden) flushSave(); });
   $('toastClose').addEventListener('click', function () { show($('toast'), false); });
 
+  /* ---------- first-run onboarding ---------- */
+
+  /* Full-window layer over the settings view. Steps: 0 welcome, 1 mic,
+     2 accessibility, 3 API key, 4 done. The 3s permission poll re-renders
+     steps 1–2 (no inputs there); the key draft on step 3 lives in ob.keyDraft
+     so a re-render never eats typed text. */
+  var ob = { active: false, step: 0, keyDraft: '', keyTest: { s: 'idle', msg: '' } };
+
+  var OB_LOGO = '<svg width="64" height="64" viewBox="0 0 128 128"><path d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64" fill="none" stroke="#5e5ce6" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var OB_MIC = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#5e5ce6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10.5V11a7 7 0 0 0 14 0v-.5"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>';
+  var OB_KBD = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#e2890a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10.5" x2="6" y2="10.5"/><line x1="10" y1="10.5" x2="10" y2="10.5"/><line x1="14" y1="10.5" x2="14" y2="10.5"/><line x1="18" y1="10.5" x2="18" y2="10.5"/><line x1="7" y1="14" x2="17" y2="14"/></svg>';
+  var OB_KEY = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#5e5ce6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.85 12.15 8.5-8.5"/><path d="m18 5 2 2"/><path d="m15 8 2 2"/></svg>';
+
+  function obStep(icon, title, text, extra) {
+    return '<div class="ob-icon">' + icon + '</div>' +
+           '<div class="ob-title">' + title + '</div>' +
+           '<div class="ob-text">' + text + '</div>' + (extra || '');
+  }
+
+  function renderOnboard() {
+    if (!ob.active) return;
+    var el = $('onboard');
+    var dots = '<div class="ob-dots">';
+    for (var i = 0; i < 5; i++) dots += '<span class="ob-dot' + (i === ob.step ? ' on' : '') + '"></span>';
+    dots += '</div>';
+
+    var body = '', foot = '';
+    if (ob.step === 0) {
+      body = obStep(OB_LOGO, 'Welcome to Scriva',
+        'Hold a hotkey, speak, release — your words are typed into whatever app ' +
+        'has focus. You bring your own API keys and pick your providers. ' +
+        'Nothing phones home: no accounts, no telemetry.');
+      foot = '<button class="ob-btn" data-ob="next">Get started</button><span class="ob-link"></span>';
+    } else if (ob.step === 1) {
+      var mic = state.perms.mic;
+      var micStatus = mic === 'granted' ? '<span class="granted">✓ Granted</span>'
+        : mic === 'denied' ? '<span class="denied">✕ Denied — allow it in System Settings</span>' : '';
+      body = obStep(OB_MIC, 'Microphone',
+        'Scriva records your mic only while you hold the hotkey — never in the background.',
+        '<div class="ob-status">' + micStatus + '</div>');
+      foot = mic === 'granted'
+        ? '<button class="ob-btn" data-ob="next">Continue</button><span class="ob-link"></span>'
+        : (mic === 'denied'
+            ? '<button class="ob-btn" data-ob="mic-settings">Open System Settings</button>'
+            : '<button class="ob-btn" data-ob="mic-allow">Allow Microphone</button>') +
+          '<button class="ob-link" data-ob="next">Set up later</button>';
+    } else if (ob.step === 2) {
+      var ax = state.perms.accessibility;
+      body = obStep(OB_KBD, 'Accessibility',
+        'macOS requires Accessibility access for Scriva to type into other apps. ' +
+        'Without it, your speech is transcribed but <strong>no text appears</strong> — ' +
+        'the most common setup issue.',
+        '<div class="ob-status">' + (ax ? '<span class="granted">✓ Granted</span>' : '') + '</div>');
+      foot = ax
+        ? '<button class="ob-btn" data-ob="next">Continue</button><span class="ob-link"></span>'
+        : '<button class="ob-btn" data-ob="a11y">Open System Settings</button>' +
+          '<button class="ob-link" data-ob="next">Set up later</button>';
+    } else if (ob.step === 3) {
+      var p = state.settings.transcription_provider;
+      var t = ob.keyTest;
+      var statusHtml = t.s === 'valid' ? '<span class="status valid">✓ ' + t.msg + '</span>'
+        : t.s === 'invalid' ? '<span class="status invalid">✕ ' + t.msg + '</span>' : '';
+      body = obStep(OB_KEY, 'Your ' + LABEL[p] + ' API key',
+        'Transcription runs on your own key — you pay the provider directly, ' +
+        'Scriva takes nothing. A free ' + LABEL[p] + ' key is the fastest way in.',
+        '<div class="ob-keywrap"><div class="key-flex">' +
+          '<div class="key-wrap"><input id="obKey" type="password" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="' + PLACEHOLDER[p] + '"></div>' +
+          '<button id="obTest" class="test-btn"' + (t.s === 'loading' ? ' disabled' : '') + '>' +
+            (t.s === 'loading' ? '<span class="spinner"></span>' : '<span>Test</span>') + '</button>' +
+        '</div></div>' +
+        '<div class="ob-status">' + statusHtml + '</div>' +
+        '<button class="key-link" data-ob="keypage" style="margin:0; padding:0;">Get a free ' + LABEL[p] + ' key →</button>');
+      foot = '<button class="ob-btn" data-ob="next"' + (t.s === 'valid' ? '' : ' disabled') + '>Continue</button>' +
+             '<button class="ob-link" data-ob="next-skip">Skip for now</button>';
+    } else {
+      var keys = '';
+      state.settings.hotkey.forEach(function (cap) { keys += '<span class="keycap">' + cap + '</span>'; });
+      body = obStep(OB_LOGO, 'You’re all set',
+        'In any app: hold the shortcut, speak, release. Your words appear at the ' +
+        'cursor. Providers, cleanup, and the shortcut itself live in this Settings window.',
+        '<div class="ob-keys">' + keys + '</div>');
+      foot = '<button class="ob-btn" data-ob="finish">Start dictating</button><span class="ob-link"></span>';
+    }
+
+    el.innerHTML = dots + '<div class="ob-body">' + body + '</div><div class="ob-foot">' + foot + '</div>';
+
+    if (ob.step === 3) {
+      var input = $('obKey');
+      input.value = ob.keyDraft;
+      input.addEventListener('input', function () {
+        ob.keyDraft = this.value;
+        if (ob.keyTest.s !== 'idle') { ob.keyTest = { s: 'idle', msg: '' }; renderOnboard(); }
+      });
+      $('obTest').addEventListener('click', obRunTest);
+    }
+  }
+
+  function obRunTest() {
+    var p = state.settings.transcription_provider;
+    var key = ob.keyDraft.trim();
+    if (!key) { ob.keyTest = { s: 'invalid', msg: 'Paste your API key first.' }; renderOnboard(); return; }
+    ob.keyTest = { s: 'loading', msg: '' };
+    renderOnboard();
+    invoke('test_provider', { layer: 'transcription', provider: p, key: key, model: '' })
+      .then(function (model) {
+        ob.keyTest = { s: 'valid', msg: 'Connected · ' + model };
+        /* A validated key is worth keeping immediately. */
+        state.settings[KEY_FIELD[p]] = key;
+        doSave();
+        renderTrans();
+      })
+      .catch(function (err) { ob.keyTest = { s: 'invalid', msg: String(err) }; })
+      .then(renderOnboard);
+  }
+
+  $('onboard').addEventListener('click', function (e) {
+    var action = e.target.getAttribute && e.target.getAttribute('data-ob');
+    if (!action) return;
+    if (action === 'next' || action === 'next-skip') { ob.step += 1; renderOnboard(); }
+    else if (action === 'mic-allow') invoke('request_microphone').catch(function () {});
+    else if (action === 'mic-settings') openPane('Privacy_Microphone');
+    else if (action === 'a11y') invoke('request_accessibility').catch(function () {});
+    else if (action === 'keypage') openKeyPage(state.settings.transcription_provider);
+    else if (action === 'finish') {
+      ob.active = false;
+      show($('onboard'), false);
+      invoke('set_onboarded').catch(function () {});
+    }
+  });
+
+  function startOnboarding() {
+    ob.active = true; ob.step = 0;
+    show($('onboard'), true);
+    renderOnboard();
+  }
+
   /* ---------- init ---------- */
 
   applyTheme();
@@ -775,6 +950,10 @@
 
   refreshPerms();
   setInterval(refreshPerms, 3000);
+
+  invoke('get_onboarded').then(function (done) {
+    if (done === false) startOnboarding();
+  }).catch(function () {});
 
   if (TAURI && TAURI.event) {
     TAURI.event.listen('recording-state', function (ev) {

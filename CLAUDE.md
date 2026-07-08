@@ -79,6 +79,8 @@ model to `""`.
 | `check_permissions() -> { mic, accessibility }` | Mic: `"granted"\|"denied"\|"undetermined"` (live AVCaptureDevice query); a11y: bool. |
 | `request_microphone()` | Triggers the macOS mic TCC prompt (no-op unless undetermined). |
 | `request_accessibility()` | AX prompt + deep-link to System Settings a11y pane. |
+| `get_onboarded() -> bool` | First-run flag; drives the onboarding layer in the UI. Stored as a sibling `onboarded` key in the settings store, deliberately outside core's `Settings`. |
+| `set_onboarded()` | Mark onboarding complete. One-way — delete the store file to re-run onboarding. |
 
 UI test-status shape: `{ s: 'idle'|'loading'|'valid'|'invalid', msg }`.
 Hotkey stored as UI tokens (e.g. `["⌥","Space"]`); mapped to plugin

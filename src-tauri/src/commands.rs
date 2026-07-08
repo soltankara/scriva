@@ -89,6 +89,20 @@ pub fn set_hotkey(
     Ok(())
 }
 
+/// Whether first-run onboarding has been completed (drives the UI's onboarding
+/// layer on startup).
+#[tauri::command]
+pub fn get_onboarded(app: AppHandle) -> bool {
+    config::load_onboarded(&app)
+}
+
+/// Mark onboarding as completed. Write-only and one-way: there is no IPC path
+/// back to "not onboarded" (delete the store file to re-run onboarding).
+#[tauri::command]
+pub fn set_onboarded(app: AppHandle) -> Result<(), String> {
+    config::save_onboarded(&app, true)
+}
+
 /// Serializes to `{ "mic": "granted"|"denied"|"undetermined", "accessibility":
 /// bool }` — exact field names the UI reads (`p.mic`, `p.accessibility`).
 #[derive(Serialize)]

@@ -72,6 +72,9 @@ scriva/
 ├── src/                             # ── UI (vanilla web, NO build step) ──
 │   ├── index.html                   # The entire settings window: HTML/CSS/JS in one file.
 │   │                                #   Talks to Rust via window.__TAURI__.core.invoke.
+│   │                                #   Also hosts the first-run onboarding layer (#onboard,
+│   │                                #   5-step machine over the settings view; shown until
+│   │                                #   set_onboarded).
 │   │                                #   Dev watcher does NOT watch this — restart dev to see edits.
 │   └── overlay.html                 # Recording-indicator pill (window label "overlay"): pure
 │                                    #   HTML/CSS, no Tauri API, so it needs no capability grant.
@@ -101,8 +104,9 @@ scriva/
         ├── lib.rs                   # App wiring: AppState, global hotkey registration +
         │                            #   press/release handler, tray creation + recording-icon
         │                            #   swap, run_pipeline (capture→encode→transcribe→clean→
-        │                            #   inject), builder/setup, Accessory activation policy
-        │                            #   (set BEFORE .run(), never in setup()). CloseRequested
+        │                            #   inject), builder/setup, first-run window show (when
+        │                            #   not onboarded), Accessory activation policy (set
+        │                            #   BEFORE .run(), never in setup()). CloseRequested
         │                            #   handler is scoped to the "main" window.
         ├── overlay.rs               # Recording-indicator overlay window (label "overlay"):
         │                            #   built once hidden in setup; show()/hide() on hotkey
@@ -114,12 +118,15 @@ scriva/
         │                            #   expose no NSMenu handle, so it observes
         │                            #   NSMenuDidBeginTrackingNotification (objc2 + block2) and
         │                            #   calls setMinimumWidth: on our 2-item tray menu.
-        ├── commands.rs              # The seven #[tauri::command] IPC handlers (contract in
+        ├── commands.rs              # The nine #[tauri::command] IPC handlers (contract in
         │                            #   CLAUDE.md): load/save settings, test_provider, set_hotkey,
-        │                            #   check_permissions, request_microphone, request_accessibility
+        │                            #   check_permissions, request_microphone, request_accessibility,
+        │                            #   get_onboarded, set_onboarded
         ├── config.rs                # Settings persistence (tauri-plugin-store, settings.json),
-        │                            #   hotkey UI-token → accelerator mapping (⌥→Alt etc.)
-        │                            #   + its tests. Re-exports Settings/effective_key from core.
+        │                            #   first-run `onboarded` flag (sibling store key, kept out
+        │                            #   of core's Settings), hotkey UI-token → accelerator
+        │                            #   mapping (⌥→Alt etc.) + its tests. Re-exports
+        │                            #   Settings/effective_key from core.
         ├── audio.rs                 # Mic CAPTURE only (cpal): dedicated OS thread owns the
         │                            #   !Send stream, ships samples over mpsc. Also mic TCC
         │                            #   status/request (AVFoundation via objc2). Re-exports

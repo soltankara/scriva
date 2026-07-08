@@ -300,12 +300,24 @@ pub fn run() {
             commands::check_permissions,
             commands::request_accessibility,
             commands::request_microphone,
+            commands::get_onboarded,
+            commands::set_onboarded,
         ])
         .setup(|app| {
             // Load settings and manage state before registering the hotkey.
             let settings = config::load(app.handle());
             let stored_combo = settings.hotkey.clone();
             app.manage(AppState::new(settings));
+
+            // First run: show the (normally hidden) settings window so the
+            // webview's onboarding layer greets the user. Rust-side show avoids
+            // racing the webview load; later launches keep the hidden start.
+            if !config::load_onboarded(app.handle()) {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
 
             // Register the push-to-talk shortcut; fall back to ⌥Space if the
             // stored combo is invalid or already taken.

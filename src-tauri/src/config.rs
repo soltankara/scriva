@@ -10,6 +10,10 @@ pub use scriva_core::settings::{effective_key, Settings};
 /// Keychain; for M1 they live in this plain-JSON store (never logged).
 pub const STORE_FILE: &str = "settings.json";
 const STORE_KEY: &str = "settings";
+/// Sibling store key for the first-run flag. Kept out of core's `Settings` —
+/// it's shell UX state, not a pipeline setting, and the UI's debounced
+/// whole-struct auto-save must not be able to clobber it.
+const ONBOARDED_KEY: &str = "onboarded";
 
 /// Load settings from the store, falling back to defaults if the store or the
 /// entry is missing / unreadable.
@@ -28,6 +32,24 @@ pub fn save<R: Runtime>(app: &AppHandle<R>, settings: &Settings) -> Result<(), S
     let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
     let value = serde_json::to_value(settings).map_err(|e| e.to_string())?;
     store.set(STORE_KEY, value);
+    store.save().map_err(|e| e.to_string())
+}
+
+/// Whether first-run onboarding has been completed. Missing/unreadable = false.
+pub fn load_onboarded<R: Runtime>(app: &AppHandle<R>) -> bool {
+    match app.store(STORE_FILE) {
+        Ok(store) => store
+            .get(ONBOARDED_KEY)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        Err(_) => false,
+    }
+}
+
+/// Persist the onboarding-completed flag.
+pub fn save_onboarded<R: Runtime>(app: &AppHandle<R>, done: bool) -> Result<(), String> {
+    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
+    store.set(ONBOARDED_KEY, done);
     store.save().map_err(|e| e.to_string())
 }
 
