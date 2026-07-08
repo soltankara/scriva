@@ -27,9 +27,9 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    height: 34px;
-    padding: 0 14px;
-    border-radius: 17px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 20px;
     background: rgba(28, 28, 30, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
@@ -37,8 +37,8 @@
   /* The Scriva logo waveform (same path as scriva-icon.svg), stretched to
      pill proportions; non-scaling-stroke keeps the line weight uniform. */
   .wave {
-    width: 56px;
-    height: 20px;
+    width: 64px;
+    height: 24px;
     overflow: visible;
   }
   .wave path {
@@ -67,7 +67,7 @@
   .stage {
     display: none;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: .01em;
     color: #e8e8ee;
@@ -96,7 +96,7 @@
   // Called by the Rust shell (overlay.rs set_stage) via window.eval.
   window.__scrivaStage = function (s) {
     document.body.setAttribute('data-stage', s);
-    var text = { transcribing: 'Transcribing…', polishing: 'Polishing…' }[s];
+    var text = { transcribing: 'Transcribing', polishing: 'Polishing' }[s];
     document.getElementById('stage').textContent = text || '';
   };
 </script>
