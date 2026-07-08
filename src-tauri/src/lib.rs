@@ -362,10 +362,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         // LaunchAgent (not AppleScript: that variant drives System Events and
         // triggers an Automation TCC prompt). The agent plist is the source of
-        // truth for the login-item state — no mirror field in Settings.
+        // truth for the login-item state — no mirror field in Settings. The
+        // --autostart arg marks login launches so setup() can keep them quiet
+        // while manual launches open the Settings window.
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--autostart"]),
         ))
         .invoke_handler(tauri::generate_handler![
             commands::load_settings,
@@ -384,10 +386,13 @@ pub fn run() {
             let stored_combo = settings.hotkey.clone();
             app.manage(AppState::new(settings));
 
-            // First run: show the (normally hidden) settings window so the
-            // webview's onboarding layer greets the user. Rust-side show avoids
-            // racing the webview load; later launches keep the hidden start.
-            if !config::load_onboarded(app.handle()) {
+            // Show the Settings window on manual launches (a launched menu-bar
+            // app that shows nothing reads as broken); login launches carry the
+            // --autostart arg from the LaunchAgent and stay quiet — except on
+            // first run, where the onboarding layer must greet the user.
+            // Rust-side show avoids racing the webview load.
+            let autostarted = std::env::args().any(|a| a == "--autostart");
+            if !autostarted || !config::load_onboarded(app.handle()) {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();

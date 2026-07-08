@@ -87,6 +87,9 @@ Auto-start uses `tauri-plugin-autostart` (LaunchAgent variant): the UI calls
 plist is the source of truth, deliberately no mirror field in `Settings`. The
 plist records the absolute `.app` path at enable time (enabling from a dev
 binary points at the dev binary; moving the app breaks it — re-toggle fixes).
+Login launches carry `--autostart` (passed by the LaunchAgent) and start with
+the window hidden; manual launches open the Settings window. If the login item
+was enabled before the flag existed, re-toggle it to refresh the plist.
 
 UI test-status shape: `{ s: 'idle'|'loading'|'valid'|'invalid', msg }`.
 Hotkey stored as UI tokens (e.g. `["⌥","Space"]`); mapped to plugin
