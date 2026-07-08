@@ -157,6 +157,11 @@ cargo test -p scriva-core   # core unit tests (audio processing)
   `#[cfg(debug_assertions)]`-gated, so a bundled app only sees keys entered in
   the Settings UI. Don't debug "no key configured" in a release build against
   `.env`.
+- **Web-asset edits don't trigger a rebuild**: `generate_context!` embeds
+  `src/` into the binary, but cargo doesn't track those files — a build after
+  editing only `src/*.html` is a no-op that keeps the OLD embedded assets
+  (same trap as Info.plist). `touch src-tauri/src/lib.rs` before
+  `npm run tauri build` to force the re-embed.
 - Sweep AppleDouble junk after editing files and before builds:
   `find src src-tauri -name '._*' -delete` — `generate_context!` embeds
   everything in `src/` (a stray `._overlay.html` would ship inside the app),

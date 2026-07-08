@@ -62,6 +62,7 @@ committed, debug builds only).
 ```sh
 cd <repo root>
 find src src-tauri -name '._*' -delete   # sweep AppleDouble junk (exFAT)
+touch src-tauri/src/lib.rs               # force re-embed of src/ web assets
 npm run tauri build
 ```
 
