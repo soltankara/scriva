@@ -76,9 +76,12 @@ scriva/
 │   │                                #   5-step machine over the settings view; shown until
 │   │                                #   set_onboarded).
 │   │                                #   Dev watcher does NOT watch this — restart dev to see edits.
-│   └── overlay.html                 # Recording-indicator pill (window label "overlay"): pure
-│                                    #   HTML/CSS, no Tauri API, so it needs no capability grant.
-│                                    #   Shown/hidden + positioned by src-tauri/src/overlay.rs.
+│   └── overlay.html                 # Recording/pipeline pill (window label "overlay"): shown
+│                                    #   from hotkey press until text is injected; waveform →
+│                                    #   "Transcribing…" → "Polishing…" stages driven by
+│                                    #   overlay.rs via window.eval (no Tauri API, so no
+│                                    #   capability grant). Shown/hidden + positioned by
+│                                    #   src-tauri/src/overlay.rs.
 │
 └── src-tauri/                       # ── THE MACOS DESKTOP SHELL (Tauri 2) ──
     ├── Cargo.toml                   # Shell crate `scriva` (lib scriva_lib); depends on

@@ -1,9 +1,11 @@
 <!doctype html>
-<!-- Recording indicator overlay. Shown by the Rust shell (window label
-     "overlay") while the hotkey is held; pure CSS, no Tauri API usage,
-     so it needs no capability grants. Click-through + non-focusable is
-     enforced on the Rust side. Always dark — it floats over arbitrary
-     content, not over our UI. -->
+<!-- Recording/pipeline indicator overlay. Shown by the Rust shell (window
+     label "overlay") from hotkey press until the dictated text has been
+     injected. Stages: "recording" (animated waveform) → "transcribing" →
+     "polishing" (status text), driven by overlay.rs via window.eval of
+     __scrivaStage() — no Tauri API usage here, so no capability grants.
+     Click-through + non-focusable is enforced on the Rust side. Always
+     dark — it floats over arbitrary content, not over our UI. -->
 <html>
 <head>
 <meta charset="utf-8" />
@@ -61,6 +63,25 @@
     from { stroke-dashoffset: 0; }
     to   { stroke-dashoffset: -100; }
   }
+  /* Post-release pipeline stages: waveform swaps for pulsing status text. */
+  .stage {
+    display: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    color: #e8e8ee;
+    white-space: nowrap;
+    animation: stage-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes stage-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .45; }
+  }
+  body[data-stage="transcribing"] .wave,
+  body[data-stage="polishing"] .wave { display: none; }
+  body[data-stage="transcribing"] .stage,
+  body[data-stage="polishing"] .stage { display: inline; }
 </style>
 </head>
 <body>
@@ -69,6 +90,15 @@
       <path class="base"  d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64" pathLength="100"></path>
       <path class="pulse" d="M 14 64 L 24 64 L 30 56 L 36 76 L 44 42 L 52 90 L 62 22 L 72 100 L 80 40 L 88 80 L 94 56 L 100 64 L 114 64" pathLength="100"></path>
     </svg>
+    <span class="stage" id="stage"></span>
   </div>
+<script>
+  // Called by the Rust shell (overlay.rs set_stage) via window.eval.
+  window.__scrivaStage = function (s) {
+    document.body.setAttribute('data-stage', s);
+    var text = { transcribing: 'Transcribing…', polishing: 'Polishing…' }[s];
+    document.getElementById('stage').textContent = text || '';
+  };
+</script>
 </body>
 </html>

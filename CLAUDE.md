@@ -136,7 +136,10 @@ cargo test -p scriva-core   # core unit tests (audio processing)
   window label); Quit lives in the tray menu.
 - The recording overlay (label `overlay`, `src/overlay.html`, plumbing in
   `src-tauri/src/overlay.rs`) must **never take focus or receive clicks** —
-  injection targets the frontmost app. It is built `focused(false)` +
+  injection targets the frontmost app. It stays visible through the whole
+  pipeline (waveform while recording, then "Transcribing…"/"Polishing…" text);
+  stages are pushed from Rust via `overlay::set_stage` → `window.eval`, so the
+  overlay webview needs no Tauri API or capability grants. It is built `focused(false)` +
   `set_ignore_cursor_events(true)`; never call `set_focus()` on it. Its
   transparency requires BOTH `"macOSPrivateApi": true` (tauri.conf.json) and
   the `macos-private-api` cargo feature — removing either breaks the build or

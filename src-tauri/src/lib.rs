@@ -188,6 +188,9 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
                     let _ = app.emit_to("main", "recording-state", true);
                     eprintln!("[scriva] recording started");
                     set_tray_recording(app, true);
+                    // Reset the pill to the waveform before it becomes visible —
+                    // it may still show last run's "Polishing…" text.
+                    overlay::set_stage(app, "recording");
                     overlay::show(app);
                 }
                 Err(_) => {
@@ -206,12 +209,17 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
             let _ = app.emit_to("main", "recording-state", false);
             eprintln!("[scriva] recording stopped");
             set_tray_recording(app, false);
-            overlay::hide(app);
+            // Keep the pill visible through the pipeline so the user sees
+            // what's happening instead of a silent wait; run_pipeline advances
+            // it to "polishing", and it hides when the text has landed (or on
+            // any failure).
+            overlay::set_stage(app, "transcribing");
             state.pipeline_busy.store(true, Ordering::SeqCst);
 
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
                 let outcome = run_pipeline(&app, handle).await;
+                overlay::hide(&app);
                 if let Err(msg) = outcome {
                     eprintln!("[scriva] {msg}");
                     let _ = app.emit_to("main", "pipeline-error", msg);
@@ -295,6 +303,7 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
     //    fall back to the raw transcript and warn softly.
     let mut text = raw.clone();
     if clean_provider != "none" {
+        overlay::set_stage(app, "polishing");
         match providers::make_cleaner(&clean_provider, &clean_key, &clean_model) {
             Ok(Some(cleaner)) => match cleaner.clean(&raw).await {
                 Ok(cleaned) => {

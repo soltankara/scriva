@@ -123,6 +123,20 @@ pub fn hide<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// Switch the pill's pipeline stage: `"recording"` (animated waveform),
+/// `"transcribing"` or `"polishing"` (status text). Pushed into the overlay
+/// via `eval` so overlay.html stays free of Tauri API usage and needs no
+/// capability grants. The stage value never contains user input — only these
+/// three static literals — so the eval string needs no escaping.
+pub fn set_stage<R: Runtime>(app: &AppHandle<R>, stage: &str) {
+    debug_assert!(matches!(stage, "recording" | "transcribing" | "polishing"));
+    if let Some(window) = app.get_webview_window(LABEL) {
+        let _ = window.eval(&format!(
+            "window.__scrivaStage&&window.__scrivaStage('{stage}')"
+        ));
+    }
+}
+
 /// Place the overlay at the bottom-center of the monitor containing the cursor,
 /// falling back to the primary monitor. Monitor geometry is in physical pixels;
 /// the window size is logical, so scale by the monitor's factor before centering.
