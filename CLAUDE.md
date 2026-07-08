@@ -20,9 +20,10 @@ deletes a file or folder, update `project-structure.md` in the same change.
 refer to it as `project-description.md` — the real filename is `project-desc.md`).
 Read it before non-trivial changes.
 
-**Current milestone: M1** (macOS MVP, run from source). Do not pull M2+ scope
-(packaging/signing, onboarding, local Whisper, streaming, Windows/Linux)
-forward unless explicitly asked.
+**Current milestone: M2** (distributable macOS app: `.dmg` packaging, code
+signing + notarization, first-run onboarding, auto-start, tray polish). M1 is
+done. Do not pull M3+ scope (local Whisper, streaming, Windows/Linux) forward
+unless explicitly asked.
 
 ## Pipeline
 
@@ -137,9 +138,20 @@ cargo test -p scriva-core   # core unit tests (audio processing)
   (1 << 8) onto Tauri's `canJoinAllSpaces`. `ns_window()` is main-thread-only,
   so it runs via `run_on_main_thread`, and is re-asserted after each `show()`.
 - Machine-local, git-ignored `.cargo/config.toml` at the repo root redirects
-  the cargo target dir off this exFAT volume (AppleDouble `._*` sidecars break
+  the cargo target dir off this exFAT volume to
+  `/Users/soltan/.cargo/target-scriva` (AppleDouble `._*` sidecars break
   tauri-build's globbing). It must stay at the root so workspace-level cargo
   invocations pick it up; run cargo from the repo root.
+- **Release builds ignore `.env`**: the `effective_key` env override is
+  `#[cfg(debug_assertions)]`-gated, so a bundled app only sees keys entered in
+  the Settings UI. Don't debug "no key configured" in a release build against
+  `.env`.
+- Before `npm run tauri build`, sweep AppleDouble junk:
+  `find src src-tauri/icons -name '._*' -delete` — `generate_context!` embeds
+  everything in `src/` (a stray `._overlay.html` would ship inside the app).
+  Bundle artifacts land in the redirected target dir under
+  `release/bundle/{macos,dmg}/`. If `codesign` ever complains about
+  "detritus", `xattr -cr` the built `.app` and re-check the embedded sources.
 
 ## License
 

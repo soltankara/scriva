@@ -32,7 +32,7 @@ Each provider also has a model picker in Settings (e.g. Groq's faster
 
 ## Getting started (Milestone 1 — run from source)
 
-Requirements: macOS 11+, [Rust](https://rustup.rs), Node.js, and at least one
+Requirements: macOS 12+, [Rust](https://rustup.rs), Node.js, and at least one
 API key (a free [Groq](https://console.groq.com) key is the fastest way in).
 
 ```sh
@@ -56,6 +56,33 @@ Then:
 
 Optional: copy `.env.example` to `.env` for dev-only key overrides (never
 committed, debug builds only).
+
+## Building a release (maintainers)
+
+```sh
+cd <repo root>
+find src src-tauri/icons -name '._*' -delete   # sweep AppleDouble junk (exFAT)
+npm run tauri build
+```
+
+This produces `Scriva.app` and a `.dmg` under the cargo target dir
+(`release/bundle/{macos,dmg}/`). Notes:
+
+- **Release builds ignore `.env`** — the dev key override is compiled out.
+  Enter API keys in the Settings window.
+- The bundled app is a different code identity from the dev binary, so macOS
+  will ask for Microphone and Accessibility again on first run.
+- To sign + notarize (required for a warning-free download experience), set
+  the Apple env vars before building — the bundler then signs, notarizes, and
+  staples automatically:
+
+```sh
+export APPLE_SIGNING_IDENTITY="Developer ID Application: <name> (<TEAMID>)"
+export APPLE_ID="<apple id email>"
+export APPLE_PASSWORD="<app-specific password>"
+export APPLE_TEAM_ID="<TEAMID>"
+npm run tauri build
+```
 
 ## Costs
 
@@ -82,8 +109,8 @@ Typical daily dictation use costs pennies per month.
 
 ## Roadmap
 
-- **M1 (current):** macOS MVP — the full pipeline, run from source.
-- **M2:** Signed, notarized `.dmg` with first-run onboarding.
+- **M1 (done):** macOS MVP — the full pipeline, run from source.
+- **M2 (current):** Signed, notarized `.dmg` with first-run onboarding.
 - **M3:** Local/offline transcription (whisper.cpp) — zero keys, zero cloud.
 - **M4:** Streaming transcription — text appears as you speak.
 - **M5:** Windows and Linux.
