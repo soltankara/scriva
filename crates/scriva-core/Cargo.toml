@@ -13,8 +13,23 @@ reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+# On-device inference engines (M3) — optional, pulled in only by the
+# `local-models` feature (both -sys crates compile C++ trees via cmake).
+whisper-rs = { version = "0.16", optional = true }
+# Pinned exact: llama-cpp-2 0.1.x churns its API between patch releases.
+# Listed now so the feature definition is final; consumed in M3 Phase 6.
+llama-cpp-2 = { version = "=0.1.151", optional = true }
+# Local adapters run blocking inference via tokio::task::spawn_blocking; the
+# shells that enable `local-models` always await from a tokio runtime.
+tokio = { version = "1", features = ["rt"], optional = true }
+
+# Cargo unions features per target: re-listing the engines here layers the
+# `metal` GPU feature on top of the base entries on macOS only.
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.16", optional = true, features = ["metal"] }
+llama-cpp-2 = { version = "=0.1.151", optional = true, features = ["metal"] }
+
 [features]
-# On-device inference (whisper.cpp / llama.cpp). Deliberately empty until the
-# engine deps land in M3 Phase 5; default OFF so `cargo test -p scriva-core`
-# never needs cmake. src-tauri will enable it.
-local-models = []
+# On-device inference (whisper.cpp / llama.cpp). Default OFF so
+# `cargo test -p scriva-core` never needs cmake; src-tauri enables it.
+local-models = ["dep:whisper-rs", "dep:llama-cpp-2", "dep:tokio"]

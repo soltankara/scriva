@@ -49,8 +49,13 @@ scriva/
 ├── crates/
 │   └── scriva-core/              # ── THE ENGINE (platform-independent) ──
 │       │                            # Invariant #8: may never depend on tauri, tauri-plugin-*,
-│       │                            # cpal, tokio, or any OS framework.
-│       ├── Cargo.toml               # Minimal deps: reqwest, hound, serde, serde_json, async-trait
+│       │                            # cpal, or any OS framework. (tokio rt is allowed but ONLY
+│       │                            # as an optional dep of the local-models feature.)
+│       ├── Cargo.toml               # Base deps: reqwest, hound, serde, serde_json, async-trait.
+│       │                            #   Feature `local-models` (default OFF — needs cmake) adds
+│       │                            #   whisper-rs 0.16, llama-cpp-2 =0.1.151 (pinned; API churn)
+│       │                            #   and tokio rt; a macOS target table re-lists the engines
+│       │                            #   with `metal`. src-tauri enables the feature.
 │       └── src/
 │           ├── lib.rs               # Module declarations + pub use re-exports (crate surface)
 │           ├── settings.rs          # Settings struct (NO Debug derive — holds API keys),
@@ -71,6 +76,11 @@ scriva/
 │               │                    #   factories make_transcriber() / make_cleaner()
 │               ├── groq.rs          # Groq whisper-large-v3 (default transcriber)
 │               ├── openai_transcribe.rs  # OpenAI whisper-1 (transcriber)
+│               ├── local_whisper.rs # On-device whisper.cpp transcriber (M3; only compiled
+│               │                    #   with `local-models`). Caches one loaded model in a
+│               │                    #   static (path-keyed; switch evicts); blocking inference
+│               │                    #   via tokio spawn_blocking; unload_local_transcriber()
+│               │                    #   frees the cache when the layer leaves "local".
 │               ├── claude.rs        # Anthropic Claude Haiku (CLEANUP-ONLY — no STT API)
 │               ├── openai_clean.rs  # OpenAI gpt-4o-mini (cleaner)
 │               └── gemini.rs        # Google Gemini 2.0 Flash (cleaner)

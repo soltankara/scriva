@@ -9,6 +9,8 @@
 mod claude;
 mod gemini;
 mod groq;
+#[cfg(feature = "local-models")]
+mod local_whisper;
 mod openai_clean;
 mod openai_transcribe;
 
@@ -186,16 +188,19 @@ pub fn make_transcriber(
     model: &str,
     models_dir: &Path,
 ) -> Result<Box<dyn Transcriber>, ProviderError> {
-    // Consumed by the local whisper adapter landing in M3 Phase 5.
-    let _ = models_dir;
     match name {
         "groq" => Ok(Box::new(groq::Groq::new(key, model)?)),
         "openai" => Ok(Box::new(openai_transcribe::OpenAiTranscribe::new(key, model)?)),
         // On-device: needs no API key (require_key deliberately not called).
-        // TODO(M3 Phase 5): real local whisper adapter behind `local-models`.
-        "local" => Err(ProviderError::Config(
-            "This build was compiled without local-model support.".into(),
-        )),
+        #[cfg(feature = "local-models")]
+        "local" => Ok(Box::new(local_whisper::LocalWhisper::new(models_dir, model)?)),
+        #[cfg(not(feature = "local-models"))]
+        "local" => {
+            let _ = models_dir;
+            Err(ProviderError::Config(
+                "This build was compiled without local-model support.".into(),
+            ))
+        }
         other => Err(ProviderError::Config(format!(
             "Unknown transcription provider \"{other}\""
         ))),
@@ -227,4 +232,11 @@ pub fn make_cleaner(
             "Unknown cleanup provider \"{other}\""
         ))),
     }
+}
+
+/// Drop the cached on-device whisper context (frees ~0.5–2 GB RAM). The shell
+/// calls this when the transcription layer moves away from `"local"`.
+#[cfg(feature = "local-models")]
+pub fn unload_local_transcriber() {
+    local_whisper::unload();
 }

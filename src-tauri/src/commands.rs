@@ -31,6 +31,13 @@ pub fn save_settings(
     }
 
     config::save(&app, &s)?;
+
+    // Leaving the on-device transcriber? Drop its cached model — that's
+    // ~0.5–2 GB of RAM the user gets back when moving to a cloud provider.
+    if s.transcription_provider != "local" {
+        providers::unload_local_transcriber();
+    }
+
     *state.settings.write().unwrap() = s;
     Ok(())
 }
