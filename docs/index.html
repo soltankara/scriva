@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scriva — Speak. It writes. Cleanly.</title>
-  <meta name="description" content="Scriva is an open-source voice dictation app for macOS. Hold a hotkey, speak, and polished text appears wherever your cursor is. Bring your own API key. No subscription, no telemetry.">
+  <meta name="description" content="Scriva is an open-source voice dictation app for macOS. Hold a hotkey, speak, and polished text appears wherever your cursor is. Bring your own API key — or run fully offline with on-device models. No subscription, no telemetry.">
   <meta property="og:title" content="Scriva — Speak. It writes. Cleanly.">
   <meta property="og:description" content="Open-source voice dictation for macOS. Your keys, your models, your data. No subscription.">
   <meta property="og:type" content="website">
@@ -820,8 +820,7 @@
             </button>
           </li>
           <li>
-            <!-- PLACEHOLDER: swap this URL -->
-            <a class="btn btn-primary btn-small" href="#download">Download</a>
+            <a class="btn btn-primary btn-small" href="https://github.com/soltankara/scriva/releases/latest/download/Scriva-macOS.dmg">Download</a>
           </li>
         </ul>
       </nav>
@@ -848,8 +847,7 @@
         </p>
 
         <div class="hero-ctas" data-reveal style="--reveal-delay: 0.15s">
-          <!-- PLACEHOLDER: swap this URL -->
-          <a class="btn btn-primary" href="#download" id="download">
+          <a class="btn btn-primary" href="https://github.com/soltankara/scriva/releases/latest/download/Scriva-macOS.dmg" id="download">
             <svg width="15" height="15" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>
             Download for macOS
           </a>
@@ -857,7 +855,7 @@
         </div>
 
         <p class="hero-trust" data-reveal style="--reveal-delay: 0.2s">
-          Open source&ensp;·&ensp;Bring your own key&ensp;·&ensp;No subscription
+          Open source&ensp;·&ensp;Your keys or fully offline&ensp;·&ensp;No subscription
         </p>
 
         <!-- Abstract product visual: menu bar + focused text field. No real-app screenshots. -->
@@ -962,8 +960,8 @@
                 <path d="M14 10a4 4 0 1 0-4 4h.5"/><path d="M14 10l7 7-2 2-2-2-1 1-2-2"/>
               </svg>
             </span>
-            <h3>Bring your own key</h3>
-            <p>Transcribe with Groq or OpenAI. Polish with Claude, OpenAI, or Gemini. Your keys, your choice, your bill — usually pennies.</p>
+            <h3>Your keys — or no keys</h3>
+            <p>Transcribe with Groq or OpenAI, polish with Claude, OpenAI, or Gemini — your keys, your bill, usually pennies. Or skip keys entirely with on-device models.</p>
           </article>
 
           <article class="feature" data-reveal style="--reveal-delay: 0.15s">
@@ -973,7 +971,7 @@
               </svg>
             </span>
             <h3>Privacy-first</h3>
-            <p>No telemetry, no accounts, no middleman. Your audio and text go to the provider you chose — and nowhere else.</p>
+            <p>No telemetry, no accounts, no middleman. Your audio goes to the provider you chose — or, in local mode, never leaves your Mac at all.</p>
           </article>
 
           <article class="feature" data-reveal style="--reveal-delay: 0.2s">
@@ -1011,10 +1009,13 @@
           <li class="pill">OpenAI</li>
           <li class="pill">Anthropic Claude</li>
           <li class="pill">Google Gemini</li>
+          <li class="pill">Local · whisper.cpp</li>
+          <li class="pill">Local · llama.cpp</li>
         </ul>
         <p class="models-note" data-reveal>
-          Transcription runs on Groq or OpenAI. Cleanup can use Claude, OpenAI, or Gemini —
-          or be turned off entirely if you want the raw transcript.
+          Transcription runs on Groq, OpenAI, or an on-device Whisper model. Cleanup can use
+          Claude, OpenAI, Gemini, or an on-device LLM — or be turned off entirely if you want
+          the raw transcript. Local models download right in the app and run on Apple Silicon's GPU.
         </p>
       </div>
     </section>
@@ -1027,8 +1028,8 @@
           <h2 id="privacy-title">Software that answers to you, not a subscription.</h2>
           <p>
             There’s no Scriva backend. Nothing phones home. Your audio and text travel one route:
-            straight from your Mac to the provider you picked, using your own key.
-            Don’t take our word for it — the code is public.
+            straight from your Mac to the provider you picked, using your own key — or, with
+            local models, no route at all. Don’t take our word for it — the code is public.
           </p>
           <ul class="privacy-points">
             <li>
@@ -1041,7 +1042,7 @@
             </li>
             <li>
               <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
-              <span><strong>Your keys, your data.</strong> Keys stay on your machine. Audio goes only to your chosen provider.</span>
+              <span><strong>Your keys, your data.</strong> Keys stay on your machine. Audio goes only to your chosen provider — or nowhere, with local models.</span>
             </li>
             <li>
               <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
@@ -1053,7 +1054,7 @@
             </li>
             <li>
               <svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>
-              <span><strong>No account.</strong> Download, paste a key, start talking. That's the whole setup.</span>
+              <span><strong>No account.</strong> Download, paste a key — or grab a local model — and start talking. That's the whole setup.</span>
             </li>
           </ul>
         </div>
@@ -1076,7 +1077,7 @@
             </h3>
             <div class="faq-a" id="faq-a1" role="region" aria-labelledby="faq-q1">
               <div class="faq-a-inner">
-                <p>Yes. Scriva is MIT-licensed open source — no trial, no pro tier, no locked features. The only cost is what your AI provider charges for the requests you make with your own key, which for typical dictation is a matter of cents per month.</p>
+                <p>Yes. Scriva is MIT-licensed open source — no trial, no pro tier, no locked features. The only cost is what your AI provider charges for the requests you make with your own key, which for typical dictation is a matter of cents per month. Use local on-device models and even that drops to zero.</p>
               </div>
             </div>
           </div>
@@ -1090,7 +1091,7 @@
             </h3>
             <div class="faq-a" id="faq-a2" role="region" aria-labelledby="faq-q2">
               <div class="faq-a-inner">
-                <p>Scriva doesn’t run its own servers — it sends your audio directly to an AI provider using an API key you supply. You’ll need at least one key (Groq or OpenAI) for transcription; Groq offers free keys and takes about two minutes to set up. Paste it into Scriva’s settings once and you’re done.</p>
+                <p>Scriva doesn’t run its own servers — it sends your audio directly to an AI provider using an API key you supply. Groq offers free keys and takes about two minutes to set up; paste it into Scriva’s settings once and you’re done. Prefer no keys at all? Pick <em>Local (on-device)</em> in settings, download a model in-app, and transcription and cleanup run entirely on your Mac — fully offline.</p>
               </div>
             </div>
           </div>
@@ -1132,7 +1133,7 @@
             </h3>
             <div class="faq-a" id="faq-a5" role="region" aria-labelledby="faq-q5">
               <div class="faq-a-inner">
-                <p>After transcription, an optional cleanup pass removes filler words (“um”, “uh”, false starts), fixes punctuation and capitalization, and tidies formatting — while keeping your words and meaning intact. It runs on Claude, OpenAI, or Gemini with your key, and you can turn it off for raw transcripts.</p>
+                <p>After transcription, an optional cleanup pass removes filler words (“um”, “uh”, false starts), applies your spoken self-corrections, fixes punctuation and capitalization, and tidies formatting — while keeping your words and meaning intact. It runs on Claude, OpenAI, or Gemini with your key, or on a local model on your Mac, and you can turn it off for raw transcripts.</p>
               </div>
             </div>
           </div>
@@ -1160,8 +1161,7 @@
         <h2 id="cta-title" data-reveal>Stop typing. Start talking.</h2>
         <p data-reveal style="--reveal-delay: 0.05s">Your voice, typed and polished — anywhere on your Mac.</p>
         <div class="hero-ctas" data-reveal style="--reveal-delay: 0.1s">
-          <!-- PLACEHOLDER: swap this URL -->
-          <a class="btn btn-primary" href="#download">
+          <a class="btn btn-primary" href="https://github.com/soltankara/scriva/releases/latest/download/Scriva-macOS.dmg">
             <svg width="15" height="15" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>
             Download for macOS
           </a>

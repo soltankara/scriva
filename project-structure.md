@@ -39,12 +39,16 @@ scriva/
 │   └── agents/
 │       └── tauri.md                 # tauri subagent definition: owns src-tauri/ + crates/ work
 │
-├── landing/
+├── docs/
 │   └── index.html                   # Static marketing landing page ("Scriva" branding) —
 │                                    #   single self-contained file (inline CSS/JS, no build
-│                                    #   step, no deps). NOT loaded by the app; deployable
-│                                    #   as-is to any static host. Download/GitHub URLs are
-│                                    #   placeholders marked with <!-- PLACEHOLDER --> comments.
+│                                    #   step, no deps). NOT loaded by the app. Served by
+│                                    #   GitHub Pages (main branch, /docs) at
+│                                    #   https://soltankara.github.io/scriva/. Download CTAs
+│                                    #   point at the version-stable release asset
+│                                    #   releases/latest/download/Scriva-macOS.dmg (upload a
+│                                    #   stably-named dmg copy alongside the versioned one on
+│                                    #   every release).
 │
 ├── crates/
 │   └── scriva-core/              # ── THE ENGINE (platform-independent) ──

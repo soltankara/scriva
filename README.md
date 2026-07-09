@@ -55,8 +55,9 @@ back to a cloud provider frees it.
 
 ## Install (macOS)
 
-1. Download `Scriva_<version>_aarch64.dmg` (Apple Silicon) from the releases
-   page.
+1. Download the dmg from [the landing page](https://soltankara.github.io/scriva/)
+   or the [releases page](https://github.com/soltankara/scriva/releases/latest)
+   (Apple Silicon).
 2. Open the dmg and drag **Scriva** into **Applications**.
 3. Launch it — the app is signed and notarized, so it opens with no warnings.
 4. First-run onboarding walks you through Microphone + Accessibility
@@ -70,7 +71,7 @@ key (a free [Groq](https://console.groq.com) key is the fastest way in) or a
 downloaded local model gets you dictating.
 
 ```sh
-git clone <this repo> && cd scriva
+git clone https://github.com/soltankara/scriva.git && cd scriva
 npm install
 npm run tauri dev
 ```
