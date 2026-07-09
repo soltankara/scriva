@@ -7,6 +7,7 @@
 
 pub mod audio;
 pub mod providers;
+pub mod registry;
 pub mod settings;
 
 pub use audio::{to_wav_16k_mono, RecordedAudio};

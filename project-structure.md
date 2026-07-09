@@ -57,7 +57,13 @@ scriva/
 │           │                        #   defaults, effective_key() .env override (debug builds)
 │           ├── audio.rs             # Audio PROCESSING (not capture): downmix to mono, resample
 │           │                        #   to 16 kHz, silence/too-short gates (RMS), WAV encode
-│           │                        #   via hound. Unit tests live here.
+│           │                        #   via hound + WAV→f32 decode for local Whisper (M3).
+│           │                        #   Unit tests live here.
+│           ├── registry.rs          # Curated local-model registry (M3): static MODELS table
+│           │                        #   (whisper .bin / llama .gguf ids, HF download URLs,
+│           │                        #   sizes, UI copy) + model_by_id/default_model/resolve.
+│           │                        #   Pure data, NOT feature-gated; used by the (gated)
+│           │                        #   local adapters and the shell's download manager.
 │           └── providers/           # One adapter file per AI provider — the backbone.
 │               │                    # Adding a provider = one new file + one factory line.
 │               ├── mod.rs           # Transcriber + Cleaner traits, ProviderError, shared

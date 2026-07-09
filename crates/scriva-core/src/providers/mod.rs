@@ -13,6 +13,7 @@ mod openai_clean;
 mod openai_transcribe;
 
 use std::fmt;
+use std::path::Path;
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -176,16 +177,25 @@ no commentary.";
 
 // --- factories -------------------------------------------------------------
 
-/// Build a transcriber. Groq and OpenAI only — Claude has no STT API.
-/// `model` pins a model ID; `""` = the adapter's default model.
+/// Build a transcriber. Groq, OpenAI, or local — Claude has no STT API.
+/// `model` pins a model ID; `""` = the adapter's default model. `models_dir`
+/// is where downloaded on-device models live; only `"local"` reads it.
 pub fn make_transcriber(
     name: &str,
     key: &str,
     model: &str,
+    models_dir: &Path,
 ) -> Result<Box<dyn Transcriber>, ProviderError> {
+    // Consumed by the local whisper adapter landing in M3 Phase 5.
+    let _ = models_dir;
     match name {
         "groq" => Ok(Box::new(groq::Groq::new(key, model)?)),
         "openai" => Ok(Box::new(openai_transcribe::OpenAiTranscribe::new(key, model)?)),
+        // On-device: needs no API key (require_key deliberately not called).
+        // TODO(M3 Phase 5): real local whisper adapter behind `local-models`.
+        "local" => Err(ProviderError::Config(
+            "This build was compiled without local-model support.".into(),
+        )),
         other => Err(ProviderError::Config(format!(
             "Unknown transcription provider \"{other}\""
         ))),
@@ -193,17 +203,26 @@ pub fn make_transcriber(
 }
 
 /// Build a cleaner. `"none"` yields `Ok(None)` (raw passthrough).
-/// `model` pins a model ID; `""` = the adapter's default model.
+/// `model` pins a model ID; `""` = the adapter's default model. `models_dir`
+/// is where downloaded on-device models live; only `"local"` reads it.
 pub fn make_cleaner(
     name: &str,
     key: &str,
     model: &str,
+    models_dir: &Path,
 ) -> Result<Option<Box<dyn Cleaner>>, ProviderError> {
+    // Consumed by the local llama adapter landing in M3 Phase 6.
+    let _ = models_dir;
     match name {
         "none" => Ok(None),
         "claude" => Ok(Some(Box::new(claude::Claude::new(key, model)?))),
         "openai" => Ok(Some(Box::new(openai_clean::OpenAiClean::new(key, model)?))),
         "gemini" => Ok(Some(Box::new(gemini::Gemini::new(key, model)?))),
+        // On-device: needs no API key (require_key deliberately not called).
+        // TODO(M3 Phase 6): real local llama adapter behind `local-models`.
+        "local" => Err(ProviderError::Config(
+            "This build was compiled without local-model support.".into(),
+        )),
         other => Err(ProviderError::Config(format!(
             "Unknown cleanup provider \"{other}\""
         ))),

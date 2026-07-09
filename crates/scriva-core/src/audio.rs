@@ -72,6 +72,26 @@ pub fn to_wav_16k_mono(audio: &RecordedAudio) -> Option<Vec<u8>> {
     Some(cursor.into_inner())
 }
 
+/// Decode a 16 kHz mono 16-bit PCM WAV — exactly what `to_wav_16k_mono`
+/// produces — back into f32 samples in [-1, 1], the input local Whisper wants.
+///
+/// Returns `None` if the bytes aren't a WAV in that exact format.
+pub fn wav_to_f32_16k_mono(wav: &[u8]) -> Option<Vec<f32>> {
+    let reader = hound::WavReader::new(Cursor::new(wav)).ok()?;
+    let spec = reader.spec();
+    if spec.channels != 1
+        || spec.sample_rate != TARGET_RATE
+        || spec.bits_per_sample != 16
+        || spec.sample_format != hound::SampleFormat::Int
+    {
+        return None;
+    }
+    reader
+        .into_samples::<i16>()
+        .map(|s| s.ok().map(|v| v as f32 / 32768.0))
+        .collect()
+}
+
 /// Linear-interpolation resampler. Adequate for speech feeding a Whisper model.
 fn resample_linear(input: &[f32], in_rate: f32, out_rate: f32) -> Vec<f32> {
     if input.len() < 2 || (in_rate - out_rate).abs() < 1.0 {
@@ -133,6 +153,28 @@ mod tests {
         let wav = to_wav_16k_mono(&audio).expect("should encode");
         assert_eq!(&wav[0..4], b"RIFF");
         assert_eq!(&wav[8..12], b"WAVE");
+    }
+
+    #[test]
+    fn wav_round_trips_back_to_f32() {
+        // 1s tone already at 16 kHz mono → encode skips resampling, so the
+        // decoded samples should match the originals up to i16 quantization.
+        let samples: Vec<f32> = (0..16_000)
+            .map(|i| (i as f32 * 0.05).sin() * 0.6)
+            .collect();
+        let audio = RecordedAudio {
+            samples: samples.clone(),
+            sample_rate: 16_000,
+            channels: 1,
+        };
+        let wav = to_wav_16k_mono(&audio).expect("should encode");
+        let decoded = wav_to_f32_16k_mono(&wav).expect("should decode");
+        assert_eq!(decoded.len(), samples.len());
+        for (a, b) in samples.iter().zip(&decoded) {
+            // Encode scales by i16::MAX (32767), decode divides by 32768, and
+            // the cast truncates — worst case stays under 2 quantization steps.
+            assert!((a - b).abs() <= 2.0 / 32768.0, "sample {a} became {b}");
+        }
     }
 
     #[test]

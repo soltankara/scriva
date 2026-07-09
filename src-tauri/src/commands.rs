@@ -2,7 +2,7 @@
 //! Shapes here must match what `src/index.html` sends and reads.
 
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::config::{self, Settings};
 use crate::{apply_hotkey, audio, inject, providers, AppState};
@@ -40,11 +40,19 @@ pub fn save_settings(
 /// Ok = model name (UI shows "Connected · {model}"); Err = human-readable text.
 #[tauri::command]
 pub async fn test_provider(
+    app: AppHandle,
     layer: String,
     provider: String,
     key: String,
     model: String,
 ) -> Result<String, String> {
+    // Where downloaded on-device models live; only "local" providers read it.
+    let models_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| "Couldn't resolve the app data directory.".to_string())?
+        .join("models");
+
     match layer.as_str() {
         "transcription" => {
             if provider == "claude" {
@@ -53,8 +61,8 @@ pub async fn test_provider(
                         .to_string(),
                 );
             }
-            let transcriber =
-                providers::make_transcriber(&provider, &key, &model).map_err(|e| e.to_string())?;
+            let transcriber = providers::make_transcriber(&provider, &key, &model, &models_dir)
+                .map_err(|e| e.to_string())?;
             transcriber.test().await.map_err(|e| e.to_string())
         }
         "cleanup" => {
@@ -64,7 +72,9 @@ pub async fn test_provider(
                         .to_string(),
                 );
             }
-            match providers::make_cleaner(&provider, &key, &model).map_err(|e| e.to_string())? {
+            match providers::make_cleaner(&provider, &key, &model, &models_dir)
+                .map_err(|e| e.to_string())?
+            {
                 Some(cleaner) => cleaner.test().await.map_err(|e| e.to_string()),
                 None => Err("\"None\" has nothing to test.".to_string()),
             }

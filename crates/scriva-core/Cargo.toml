@@ -12,3 +12,9 @@ hound.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+
+[features]
+# On-device inference (whisper.cpp / llama.cpp). Deliberately empty until the
+# engine deps land in M3 Phase 5; default OFF so `cargo test -p scriva-core`
+# never needs cmake. src-tauri will enable it.
+local-models = []

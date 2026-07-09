@@ -285,9 +285,17 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
         )
     };
 
+    // Where downloaded on-device models live; only "local" providers read it.
+    let models_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| "Couldn't resolve the app data directory.".to_string())?
+        .join("models");
+
     // 4. Transcribe (required).
-    let transcriber = providers::make_transcriber(&trans_provider, &trans_key, &trans_model)
-        .map_err(|e| e.to_string())?;
+    let transcriber =
+        providers::make_transcriber(&trans_provider, &trans_key, &trans_model, &models_dir)
+            .map_err(|e| e.to_string())?;
     let raw = transcriber
         .transcribe(wav)
         .await
@@ -304,7 +312,7 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
     let mut text = raw.clone();
     if clean_provider != "none" {
         overlay::set_stage(app, "polishing");
-        match providers::make_cleaner(&clean_provider, &clean_key, &clean_model) {
+        match providers::make_cleaner(&clean_provider, &clean_key, &clean_model, &models_dir) {
             Ok(Some(cleaner)) => match cleaner.clean(&raw).await {
                 Ok(cleaned) => {
                     let cleaned = cleaned.trim().to_string();
