@@ -160,6 +160,11 @@ cargo test -p scriva-core   # core unit tests (audio processing)
   `#[cfg(debug_assertions)]`-gated, so a bundled app only sees keys entered in
   the Settings UI. Don't debug "no key configured" in a release build against
   `.env`.
+- **Tauri notarizes the .app but NOT the .dmg**: a signed-and-notarized build
+  still produces a dmg that Gatekeeper rejects as "Unnotarized Developer ID"
+  until the dmg itself is submitted (`xcrun notarytool submit <dmg> … --wait`)
+  and stapled (`xcrun stapler staple <dmg>`). Verify with
+  `spctl -a -vv -t install <dmg>`.
 - **Web-asset edits don't trigger a rebuild**: `generate_context!` embeds
   `src/` into the binary, but cargo doesn't track those files — a build after
   editing only `src/*.html` is a no-op that keeps the OLD embedded assets

@@ -30,6 +30,15 @@ Each provider also has a model picker in Settings (e.g. Groq's faster
 `whisper-large-v3-turbo`, or Claude Sonnet for maximum cleanup quality).
 "Default" follows the app's recommended model for that provider.
 
+## Install (macOS)
+
+1. Download `Scriva_<version>_aarch64.dmg` (Apple Silicon) from the releases
+   page.
+2. Open the dmg and drag **Scriva** into **Applications**.
+3. Launch it — the app is signed and notarized, so it opens with no warnings.
+4. First-run onboarding walks you through Microphone + Accessibility
+   permissions and your first API key (a free Groq key works).
+
 ## Getting started (Milestone 1 — run from source)
 
 Requirements: macOS 12+, [Rust](https://rustup.rs), Node.js, and at least one
@@ -88,6 +97,15 @@ npm run tauri build
 (The sweep matters beyond the embedded `src/` assets: tauri-build also chokes
 on `._*` sidecars in `src-tauri/capabilities/`.)
 
+The bundler notarizes and staples the **.app only** — the `.dmg` wrapper still
+needs its own ticket or downloads get flagged:
+
+```sh
+xcrun notarytool submit <dmg> --keychain-profile scriva-notary --wait
+xcrun stapler staple <dmg>
+spctl -a -vv -t install <dmg>   # expect: accepted, Notarized Developer ID
+```
+
 ## Costs
 
 You pay your chosen provider directly, per use. Rough orders of magnitude
@@ -114,7 +132,7 @@ Typical daily dictation use costs pennies per month.
 ## Roadmap
 
 - **M1 (done):** macOS MVP — the full pipeline, run from source.
-- **M2 (current):** Signed, notarized `.dmg` with first-run onboarding.
+- **M2 (done):** Signed, notarized `.dmg` with first-run onboarding.
 - **M3:** Local/offline transcription (whisper.cpp) — zero keys, zero cloud.
 - **M4:** Streaming transcription — text appears as you speak.
 - **M5:** Windows and Linux.

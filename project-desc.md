@@ -137,7 +137,7 @@ Each milestone is shippable on its own. **Prove one platform end-to-end before
 widening.** Target devices are called out per milestone because they drive the
 hardest platform-specific code (hotkey capture, text injection, permissions).
 
-### Milestone 1 — macOS MVP (the core loop)
+### Milestone 1 — macOS MVP (the core loop) ✅ done
 **Target device:** macOS (Apple Silicon + Intel, macOS 11+).
 **Goal:** the full pipeline works for one platform, run from source.
 
@@ -164,7 +164,7 @@ other OSes.
 `npm run tauri dev`, grants permissions, pastes a Groq key, and can dictate into
 any macOS app.
 
-### Milestone 2 — Distributable macOS app
+### Milestone 2 — Distributable macOS app ✅ done (2026-07-09)
 **Target device:** macOS, same as M1.
 **Goal:** a normal person can install and run it without a terminal or toolchain.
 
