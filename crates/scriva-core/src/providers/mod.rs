@@ -10,6 +10,8 @@ mod claude;
 mod gemini;
 mod groq;
 #[cfg(feature = "local-models")]
+mod local_llama;
+#[cfg(feature = "local-models")]
 mod local_whisper;
 mod openai_clean;
 mod openai_transcribe;
@@ -216,18 +218,21 @@ pub fn make_cleaner(
     model: &str,
     models_dir: &Path,
 ) -> Result<Option<Box<dyn Cleaner>>, ProviderError> {
-    // Consumed by the local llama adapter landing in M3 Phase 6.
-    let _ = models_dir;
     match name {
         "none" => Ok(None),
         "claude" => Ok(Some(Box::new(claude::Claude::new(key, model)?))),
         "openai" => Ok(Some(Box::new(openai_clean::OpenAiClean::new(key, model)?))),
         "gemini" => Ok(Some(Box::new(gemini::Gemini::new(key, model)?))),
         // On-device: needs no API key (require_key deliberately not called).
-        // TODO(M3 Phase 6): real local llama adapter behind `local-models`.
-        "local" => Err(ProviderError::Config(
-            "This build was compiled without local-model support.".into(),
-        )),
+        #[cfg(feature = "local-models")]
+        "local" => Ok(Some(Box::new(local_llama::LocalLlama::new(models_dir, model)?))),
+        #[cfg(not(feature = "local-models"))]
+        "local" => {
+            let _ = models_dir;
+            Err(ProviderError::Config(
+                "This build was compiled without local-model support.".into(),
+            ))
+        }
         other => Err(ProviderError::Config(format!(
             "Unknown cleanup provider \"{other}\""
         ))),
@@ -239,4 +244,119 @@ pub fn make_cleaner(
 #[cfg(feature = "local-models")]
 pub fn unload_local_transcriber() {
     local_whisper::unload();
+}
+
+/// Drop the cached on-device llama model (frees ~1–3 GB RAM). The shell calls
+/// this when the cleanup layer moves away from `"local"`.
+#[cfg(feature = "local-models")]
+pub fn unload_local_cleaner() {
+    local_llama::unload();
+}
+
+/// Preload the selected on-device whisper model into the adapter's cache so
+/// the first dictation doesn't pay the multi-second load. Blocking; swallows
+/// all errors (a missing file errors politely at use time). The cache is
+/// path-keyed, so re-warming the already-loaded model is a no-op.
+#[cfg(feature = "local-models")]
+pub fn warm_local_transcriber(models_dir: &Path, model: &str) {
+    local_whisper::preload(models_dir, model);
+}
+
+/// Preload the selected on-device llama model into the adapter's cache.
+/// Blocking; swallows all errors. Same path-keyed no-op semantics as
+/// [`warm_local_transcriber`].
+#[cfg(feature = "local-models")]
+pub fn warm_local_cleaner(models_dir: &Path, model: &str) {
+    local_llama::preload(models_dir, model);
+}
+
+// --- local-cleaner output post-processing -----------------------------------
+
+/// Strip wrapper "chatter" a small local LLM may add around its answer:
+/// surrounding whitespace, one wrapping ``` fence block (with optional
+/// language tag on the opening line), then one wrapping pair of double quotes
+/// or backticks. Quote pairs are only stripped when the quote character does
+/// not also appear inside — `"Hi," she said. "Bye."` is content, not a wrap.
+/// Deliberately ungated (pure string code) so the default test suite covers
+/// it even though only the `local-models` cleaner calls it.
+pub fn strip_chatter(s: &str) -> String {
+    let mut text = s.trim();
+
+    // One wrapping code fence: ```lang\n … \n``` (tag optional). Only treat
+    // the first line as a tag if it looks like one (short, no spaces).
+    if text.len() >= 6 && text.starts_with("```") && text.ends_with("```") {
+        let inner = &text[3..text.len() - 3];
+        let inner = match inner.split_once('\n') {
+            Some((tag, rest)) if tag.len() <= 16 && !tag.trim_end().contains(' ') => rest,
+            _ => inner,
+        };
+        text = inner.trim();
+    }
+
+    // One wrapping pair of double quotes or backticks.
+    for quote in ['"', '`'] {
+        if text.len() >= 2 && text.starts_with(quote) && text.ends_with(quote) {
+            let inner = &text[1..text.len() - 1];
+            if !inner.contains(quote) {
+                text = inner.trim();
+            }
+            break;
+        }
+    }
+
+    text.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_chatter;
+
+    #[test]
+    fn strip_chatter_passes_plain_text_through() {
+        assert_eq!(strip_chatter("Hello world."), "Hello world.");
+    }
+
+    #[test]
+    fn strip_chatter_trims_whitespace() {
+        assert_eq!(strip_chatter("  Hello world. \n"), "Hello world.");
+    }
+
+    #[test]
+    fn strip_chatter_strips_one_wrapping_quote_pair() {
+        assert_eq!(strip_chatter("\"Hello world.\""), "Hello world.");
+        assert_eq!(strip_chatter("`Hello world.`"), "Hello world.");
+    }
+
+    #[test]
+    fn strip_chatter_keeps_interior_quotes() {
+        // Starts and ends with a quote, but they belong to the content.
+        let s = "\"Hi,\" she said. \"Bye.\"";
+        assert_eq!(strip_chatter(s), s);
+    }
+
+    #[test]
+    fn strip_chatter_drops_fences_with_language_tag() {
+        assert_eq!(strip_chatter("```text\nHello world.\n```"), "Hello world.");
+        assert_eq!(strip_chatter("```\nHello world.\n```"), "Hello world.");
+    }
+
+    #[test]
+    fn strip_chatter_keeps_first_line_that_is_not_a_tag() {
+        // First fenced line has spaces — content, not a language tag.
+        assert_eq!(
+            strip_chatter("```Hello there.\nSecond line.```"),
+            "Hello there.\nSecond line."
+        );
+    }
+
+    #[test]
+    fn strip_chatter_handles_fence_then_quotes() {
+        assert_eq!(strip_chatter("```\n\"Hello.\"\n```"), "Hello.");
+    }
+
+    #[test]
+    fn strip_chatter_can_yield_empty() {
+        assert_eq!(strip_chatter("  \"\"  "), "");
+        assert_eq!(strip_chatter(""), "");
+    }
 }

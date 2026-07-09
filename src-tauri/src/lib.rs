@@ -233,6 +233,42 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
     }
 }
 
+/// Fire-and-forget warm-up for any pipeline layer set to `"local"`: preload
+/// the selected on-device model so the first dictation doesn't pay the
+/// multi-second model load — latency is the product. Called from setup() and
+/// after every save_settings; the adapters' path-keyed caches make re-warming
+/// an already-loaded model a no-op, and all preload errors are swallowed (a
+/// missing file errors politely at dictation time). Never blocks the caller.
+pub(crate) fn warm_local_models(app: &AppHandle) {
+    let (trans_provider, trans_model, clean_provider, clean_model) = {
+        let state = app.state::<AppState>();
+        let s = state.settings.read().unwrap();
+        (
+            s.transcription_provider.clone(),
+            s.transcription_model.clone(),
+            s.cleanup_provider.clone(),
+            s.cleanup_model.clone(),
+        )
+    };
+    if trans_provider != "local" && clean_provider != "local" {
+        return;
+    }
+    let Ok(models_dir) = models::models_dir(app) else {
+        return;
+    };
+    if trans_provider == "local" {
+        let dir = models_dir.clone();
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            providers::warm_local_transcriber(&dir, &trans_model);
+        });
+    }
+    if clean_provider == "local" {
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            providers::warm_local_cleaner(&models_dir, &clean_model);
+        });
+    }
+}
+
 /// Capture → encode → transcribe → optional cleanup → inject. Returns `Err`
 /// with a human-readable message for hard failures (emitted as `pipeline-error`
 /// by the caller). Soft issues (cleanup failure) emit their own soft warning
@@ -399,6 +435,10 @@ pub fn run() {
             // A download killed by quit/crash leaves a `*.part` behind — sweep
             // them so they never linger (best-effort, errors ignored).
             models::sweep_stale_parts(app.handle());
+
+            // Warm any selected on-device models in the background so the
+            // first dictation after launch skips the model-load wait.
+            warm_local_models(app.handle());
 
             // Show the Settings window on manual launches (a launched menu-bar
             // app that shows nothing reads as broken); login launches carry the

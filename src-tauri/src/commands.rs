@@ -37,8 +37,16 @@ pub fn save_settings(
     if s.transcription_provider != "local" {
         providers::unload_local_transcriber();
     }
+    // Same for the on-device cleaner (~1–3 GB).
+    if s.cleanup_provider != "local" {
+        providers::unload_local_cleaner();
+    }
 
     *state.settings.write().unwrap() = s;
+
+    // Switching TO local (or picking a different local model) warms the new
+    // model in the background; re-warming an unchanged one is a no-op.
+    crate::warm_local_models(&app);
     Ok(())
 }
 

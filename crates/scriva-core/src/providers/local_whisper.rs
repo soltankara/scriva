@@ -33,6 +33,18 @@ pub(crate) fn unload() {
     *CTX.lock().unwrap() = None;
 }
 
+/// Load the selected transcription model into the cache ahead of time (fire-
+/// and-forget warm-up from the shell). All errors are swallowed — a missing
+/// file simply errors politely at use time.
+pub(crate) fn preload(models_dir: &Path, model: &str) {
+    let Some(info) = registry::resolve(Layer::Transcription, model) else {
+        return;
+    };
+    // Silence whisper.cpp's C-side load chatter before triggering a load.
+    whisper_rs::install_logging_hooks();
+    let _ = cached_or_load(&models_dir.join(info.file_name), info.label);
+}
+
 /// On-device whisper.cpp transcriber for one curated registry model.
 pub struct LocalWhisper {
     /// Full path to the ggml model file under the shell's models dir.

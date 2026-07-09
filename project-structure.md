@@ -73,7 +73,10 @@ scriva/
 │               │                    # Adding a provider = one new file + one factory line.
 │               ├── mod.rs           # Transcriber + Cleaner traits, ProviderError, shared
 │               │                    #   reqwest clients, CLEANUP_PROMPT (injection-hardened),
-│               │                    #   factories make_transcriber() / make_cleaner()
+│               │                    #   factories make_transcriber() / make_cleaner(),
+│               │                    #   strip_chatter() (local-cleaner output post-processing,
+│               │                    #   ungated + unit-tested), unload/warm_local_* wrappers
+│               │                    #   (gated) around the local adapters' caches
 │               ├── groq.rs          # Groq whisper-large-v3 (default transcriber)
 │               ├── openai_transcribe.rs  # OpenAI whisper-1 (transcriber)
 │               ├── local_whisper.rs # On-device whisper.cpp transcriber (M3; only compiled
@@ -83,7 +86,17 @@ scriva/
 │               │                    #   frees the cache when the layer leaves "local".
 │               ├── claude.rs        # Anthropic Claude Haiku (CLEANUP-ONLY — no STT API)
 │               ├── openai_clean.rs  # OpenAI gpt-4o-mini (cleaner)
-│               └── gemini.rs        # Google Gemini 2.0 Flash (cleaner)
+│               ├── gemini.rs        # Google Gemini 2.0 Flash (cleaner)
+│               └── local_llama.rs   # On-device llama.cpp cleaner (M3; only compiled with
+│                                    #   `local-models`). Process-wide LlamaBackend (OnceLock,
+│                                    #   logs voided) + path-keyed model cache (switch evicts);
+│                                    #   GGUF-embedded chat template + CLEANUP_PROMPT, greedy
+│                                    #   decode capped ~raw/2 tokens, strip_chatter() on the
+│                                    #   output; blocking inference via tokio spawn_blocking;
+│                                    #   unload_local_cleaner() frees the cache. Both local
+│                                    #   adapters expose preload() for the shell's warm-up
+│                                    #   (warm_local_models in src-tauri/src/lib.rs, run on
+│                                    #   startup + after save_settings).
 │
 ├── src/                             # ── UI (vanilla web, NO build step) ──
 │   ├── index.html                   # The entire settings window: HTML/CSS/JS in one file.
@@ -132,6 +145,8 @@ scriva/
         │                            #   (unregisters hotkey + aborts capture when off),
         │                            #   autostart plugin (LaunchAgent), run_pipeline
         │                            #   (capture→encode→transcribe→clean→inject),
+        │                            #   warm_local_models (fire-and-forget preload of selected
+        │                            #   on-device models; setup() + after save_settings),
         │                            #   builder/setup, first-run window show (when not
         │                            #   onboarded), Accessory activation policy (set BEFORE
         │                            #   .run(), never in setup()). CloseRequested handler is
