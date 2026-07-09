@@ -116,6 +116,28 @@
     border: none; background: transparent; margin-left: auto; padding: 0 0 0 10px;
     color: var(--accent); font-size: 11.5px; font-weight: 500; white-space: nowrap;
   }
+  .key-flex.local { justify-content: flex-end; }
+
+  /* Local on-device model list (provider = Local) */
+  .lm-list { padding: 5px 8px 2px; }
+  .lm-row { display: flex; align-items: center; gap: 10px; padding: 9px 7px; border-radius: 8px; }
+  .lm-row.pickable { cursor: pointer; }
+  .lm-row.sel { background: rgba(94,92,230,.08); }
+  [data-theme="dark"] .lm-row.sel { background: rgba(125,122,255,.15); }
+  .lm-radio { flex: none; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--text3); }
+  .lm-radio.off { opacity: .3; }
+  .lm-row.sel .lm-radio { border: 4.5px solid var(--accent); }
+  .lm-name { font-size: 13.5px; font-weight: 500; }
+  .lm-sub { font-size: 11.5px; color: var(--text2); margin-top: 1px; }
+  .lm-get {
+    flex: none; border: .5px solid var(--accent); background: transparent; color: var(--accent);
+    border-radius: 7px; padding: 5px 11px; font-size: 12px; font-weight: 600;
+  }
+  .lm-pct { flex: none; font-size: 11px; color: var(--text2); min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+  .lm-bar { flex: none; width: 78px; height: 5px; border-radius: 3px; background: var(--bar); overflow: hidden; }
+  .lm-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .2s linear; }
+  .lm-x { flex: none; border: none; background: transparent; color: var(--text3); font-size: 13px; padding: 3px 5px; display: flex; align-items: center; }
+  .lm-x:hover { color: var(--bad); }
 
   /* Toggle switch */
   .switch {
@@ -251,14 +273,15 @@
         <button id="transDD" class="dd-btn"><span id="transLabel">Groq</span> <span class="chev">▾</span></button>
         <div id="transMenu" class="menu hidden"></div>
       </div>
-      <div class="row row-sep">
+      <div class="row row-sep" id="transModelRow">
         <span class="row-title">Model</span>
         <button id="transModelDD" class="dd-btn"><span id="transModelLabel">Default</span> <span class="chev">▾</span></button>
         <div id="transModelMenu" class="menu hidden"></div>
       </div>
+      <div id="transLocalPanel" class="lm-list hidden"></div>
       <div class="key-area">
-        <div class="key-flex">
-          <div class="key-wrap">
+        <div class="key-flex" id="transKeyFlex">
+          <div class="key-wrap" id="transKeyWrap">
             <input id="transKey" type="password" spellcheck="false" autocomplete="off" autocapitalize="off">
             <button id="transEye" class="eye" title="Show / hide"></button>
           </div>
@@ -293,9 +316,10 @@
         <button id="cleanModelDD" class="dd-btn"><span id="cleanModelLabel">Default</span> <span class="chev">▾</span></button>
         <div id="cleanModelMenu" class="menu hidden"></div>
       </div>
+      <div id="cleanLocalPanel" class="lm-list hidden"></div>
       <div id="cleanKeyArea" class="key-area hidden" style="padding-top:11px;">
-        <div class="key-flex">
-          <div class="key-wrap">
+        <div class="key-flex" id="cleanKeyFlex">
+          <div class="key-wrap" id="cleanKeyWrap">
             <input id="cleanKey" type="password" spellcheck="false" autocomplete="off" autocapitalize="off">
             <button id="cleanEye" class="eye" title="Show / hide"></button>
           </div>
@@ -382,7 +406,7 @@
     </div>
   </div>
 
-  <div class="privacy">Your key, your data. Audio goes only to the provider you chose — nothing else leaves your Mac. No accounts, no telemetry.</div>
+  <div class="privacy">Your key, your data. Audio goes only to the provider you chose — nothing else leaves your Mac. No accounts, no telemetry. Or go fully offline: with local models, nothing leaves at all.</div>
 </div>
 
 <!-- First-run onboarding layer; populated and driven by renderOnboard(). -->
@@ -408,7 +432,7 @@
   var EYE_OPEN = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
   var EYE_OFF = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/><path d="M6.6 6.6A13.5 13.5 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 3.06-.52"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
   var PLACEHOLDER = { groq: 'gsk_xxxxxxxxxxxxxxxxxxxx', openai: 'sk-xxxxxxxxxxxxxxxxxxxx', claude: 'sk-ant-xxxxxxxxxxxxxxxx', gemini: 'AIzaxxxxxxxxxxxxxxxxxx' };
-  var LABEL = { groq: 'Groq', openai: 'OpenAI', claude: 'Claude', gemini: 'Gemini', none: 'None' };
+  var LABEL = { groq: 'Groq', openai: 'OpenAI', claude: 'Claude', gemini: 'Gemini', none: 'None', local: 'Local' };
   var KEY_FIELD = { groq: 'groq_key', openai: 'openai_key', claude: 'claude_key', gemini: 'gemini_key' };
   var KEY_URLS = {
     groq: 'https://console.groq.com/keys',
@@ -455,13 +479,18 @@
   }
   var TRANS_OPTS = [
     { value: 'groq', label: 'Groq', sub: 'Fastest · generous free tier' },
-    { value: 'openai', label: 'OpenAI', sub: 'Whisper & GPT-4o transcribe models' }
+    { value: 'openai', label: 'OpenAI', sub: 'Whisper & GPT-4o transcribe models' },
+    { value: 'local', label: 'Local (on-device)', sub: 'Private · offline · no API key' }
   ];
   var CLEAN_OPTS = [
     { value: 'claude', label: 'Claude', sub: 'Best writing quality' },
     { value: 'openai', label: 'OpenAI', sub: 'GPT mini models · cheap & fast' },
-    { value: 'gemini', label: 'Gemini', sub: 'Flash models · cheap & fast' }
+    { value: 'gemini', label: 'Gemini', sub: 'Flash models · cheap & fast' },
+    { value: 'local', label: 'Local (on-device)', sub: 'Private · offline · no API key' }
   ];
+  /* Local model ids come from core's registry (list_local_models); a stored
+     model of '' means the curated default, mirrored here for the radio UI. */
+  var DEFAULT_LOCAL = { transcription: 'whisper-small', cleanup: 'llama-3.2-3b' };
 
   var state = {
     settings: {
@@ -477,6 +506,7 @@
     showTransKey: false, showCleanKey: false,
     capturingHotkey: false,
     perms: { mic: 'undetermined', accessibility: false },
+    localModels: [],
     recording: false,
     pillError: false,
     menu: '',
@@ -529,22 +559,113 @@
     btn.innerHTML = loading ? '<span class="spinner"></span>' : '<span>Test</span>';
   }
 
+  /* ---------- local (on-device) models ---------- */
+
+  var TRASH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+  function lmSize(mb) { return mb >= 1000 ? (mb / 1024).toFixed(1) + ' GB' : mb + ' MB'; }
+
+  function renderLocalList(el, layer, current) {
+    el.innerHTML = '';
+    state.localModels.filter(function (m) { return m.layer === layer; }).forEach(function (m) {
+      var got = m.state === 'downloaded';
+      var sel = got && (current ? current === m.id : m.id === DEFAULT_LOCAL[layer]);
+      var row = document.createElement('div');
+      row.className = 'lm-row' + (sel ? ' sel' : '') + (got ? ' pickable' : '');
+      if (got) row.setAttribute('data-pick', m.id);
+      var html = '<span class="lm-radio' + (got ? '' : ' off') + '"></span>' +
+        '<div style="flex:1; min-width:0;"><div class="lm-name"></div><div class="lm-sub"></div></div>';
+      if (m.state === 'downloading') {
+        html += '<span class="lm-pct">' + (m.pct || 0) + '%</span>' +
+          '<div class="lm-bar"><i style="width:' + (m.pct || 0) + '%"></i></div>' +
+          '<button class="lm-x" data-lm="cancel" data-id="' + m.id + '" title="Cancel download">✕</button>';
+      } else if (got) {
+        html += '<button class="lm-x" data-lm="delete" data-id="' + m.id + '" title="Delete from disk">' + TRASH + '</button>';
+      } else {
+        html += '<button class="lm-get" data-lm="download" data-id="' + m.id + '">Download</button>';
+      }
+      row.innerHTML = html;
+      row.querySelector('.lm-name').textContent = m.label;
+      row.querySelector('.lm-sub').textContent = lmSize(m.size_mb) + ' · ' + m.sub;
+      el.appendChild(row);
+    });
+  }
+
+  /* Re-render only the visible model lists — never the key inputs, so a
+     progress tick can't steal focus or a caret from a half-typed API key. */
+  function rerenderLocalPanels() {
+    if (state.settings.transcription_provider === 'local')
+      renderLocalList($('transLocalPanel'), 'transcription', state.settings.transcription_model);
+    if (state.settings.cleanup_provider === 'local')
+      renderLocalList($('cleanLocalPanel'), 'cleanup', state.settings.cleanup_model);
+  }
+
+  function refreshLocalModels() {
+    invoke('list_local_models').then(function (list) {
+      state.localModels = list || [];
+      rerenderLocalPanels();
+    }).catch(function () {});
+  }
+
+  function lmAction(e, layer) {
+    var btn = e.target.closest('[data-lm]');
+    if (btn) {
+      var id = btn.getAttribute('data-id'), act = btn.getAttribute('data-lm');
+      if (act === 'download') {
+        invoke('download_model', { id: id }).catch(function (err) { toast(String(err)); refreshLocalModels(); });
+        var m = state.localModels.filter(function (x) { return x.id === id; })[0];
+        if (m) { m.state = 'downloading'; m.pct = 0; }
+        rerenderLocalPanels();
+      } else if (act === 'cancel') {
+        invoke('cancel_download', { id: id }).catch(function () {});
+      } else if (act === 'delete') {
+        invoke('delete_model', { id: id }).then(refreshLocalModels).catch(function (err) { toast(String(err)); });
+      }
+      return;
+    }
+    var row = e.target.closest('[data-pick]');
+    if (!row) return;
+    var pid = row.getAttribute('data-pick');
+    if (layer === 'transcription') {
+      state.settings.transcription_model = pid;
+      state.transTest = { s: 'idle', msg: '' };
+      renderTrans();
+    } else {
+      state.settings.cleanup_model = pid;
+      state.cleanTest = { s: 'idle', msg: '' };
+      renderClean();
+    }
+    scheduleSave();
+  }
+
   function renderTrans() {
     var p = state.settings.transcription_provider;
+    var isLocal = p === 'local';
     $('transLabel').textContent = LABEL[p];
-    $('transKey').placeholder = PLACEHOLDER[p];
-    $('transKey').value = state.settings[KEY_FIELD[p]];
-    $('transKey').type = state.showTransKey ? 'text' : 'password';
-    $('transEye').innerHTML = state.showTransKey ? EYE_OFF : EYE_OPEN;
+    /* Local swaps the model dropdown + key input for the on-device model list;
+       the Test button stays (it verifies the selected model file loads). */
+    show($('transModelRow'), !isLocal);
+    show($('transLocalPanel'), isLocal);
+    show($('transKeyWrap'), !isLocal);
+    show($('transKeyLink'), !isLocal);
+    $('transKeyFlex').classList.toggle('local', isLocal);
+    if (isLocal) {
+      renderLocalList($('transLocalPanel'), 'transcription', state.settings.transcription_model);
+    } else {
+      $('transKey').placeholder = PLACEHOLDER[p];
+      $('transKey').value = state.settings[KEY_FIELD[p]];
+      $('transKey').type = state.showTransKey ? 'text' : 'password';
+      $('transEye').innerHTML = state.showTransKey ? EYE_OFF : EYE_OPEN;
+      $('transKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
+      $('transModelLabel').textContent = modelLabel('transcription', p, state.settings.transcription_model);
+      renderMenu($('transModelMenu'), MODEL_OPTS.transcription[p] || [], state.settings.transcription_model, function (v) {
+        state.settings.transcription_model = v;
+        state.transTest = { s: 'idle', msg: '' };
+        closeMenus(); renderTrans(); scheduleSave();
+      });
+    }
     renderTestBtn($('transTest'), state.transTest.s === 'loading');
     renderStatus($('transStatus'), state.transTest);
-    $('transKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
-    $('transModelLabel').textContent = modelLabel('transcription', p, state.settings.transcription_model);
-    renderMenu($('transModelMenu'), MODEL_OPTS.transcription[p] || [], state.settings.transcription_model, function (v) {
-      state.settings.transcription_model = v;
-      state.transTest = { s: 'idle', msg: '' };
-      closeMenus(); renderTrans(); scheduleSave();
-    });
     renderMenu($('transMenu'), TRANS_OPTS, p, function (v) {
       state.settings.transcription_provider = v;
       state.settings.transcription_model = ''; /* a model ID is provider-specific */
@@ -556,29 +677,38 @@
   function renderClean() {
     var p = state.settings.cleanup_provider;
     var on = p !== 'none';
+    var isLocal = p === 'local';
     $('cleanToggle').classList.toggle('on', on);
     $('cleanToggle').setAttribute('aria-checked', on ? 'true' : 'false');
     $('cleanToggleRow').classList.toggle('row-sep', on);
     show($('cleanProviderRow'), on);
     $('cleanProviderRow').classList.toggle('row-sep', on);
-    show($('cleanModelRow'), on);
+    show($('cleanModelRow'), on && !isLocal);
     $('cleanModelRow').classList.toggle('row-sep', on);
+    show($('cleanLocalPanel'), on && isLocal);
     show($('cleanKeyArea'), on);
     if (on) {
       $('cleanLabel').textContent = LABEL[p];
-      $('cleanKey').placeholder = PLACEHOLDER[p] || 'sk-...';
-      $('cleanKey').value = state.settings[KEY_FIELD[p]];
-      $('cleanKey').type = state.showCleanKey ? 'text' : 'password';
-      $('cleanEye').innerHTML = state.showCleanKey ? EYE_OFF : EYE_OPEN;
+      show($('cleanKeyWrap'), !isLocal);
+      show($('cleanKeyLink'), !isLocal);
+      $('cleanKeyFlex').classList.toggle('local', isLocal);
+      if (isLocal) {
+        renderLocalList($('cleanLocalPanel'), 'cleanup', state.settings.cleanup_model);
+      } else {
+        $('cleanKey').placeholder = PLACEHOLDER[p] || 'sk-...';
+        $('cleanKey').value = state.settings[KEY_FIELD[p]];
+        $('cleanKey').type = state.showCleanKey ? 'text' : 'password';
+        $('cleanEye').innerHTML = state.showCleanKey ? EYE_OFF : EYE_OPEN;
+        $('cleanKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
+        $('cleanModelLabel').textContent = modelLabel('cleanup', p, state.settings.cleanup_model);
+        renderMenu($('cleanModelMenu'), MODEL_OPTS.cleanup[p] || [], state.settings.cleanup_model, function (v) {
+          state.settings.cleanup_model = v;
+          state.cleanTest = { s: 'idle', msg: '' };
+          closeMenus(); renderClean(); scheduleSave();
+        });
+      }
       renderTestBtn($('cleanTest'), state.cleanTest.s === 'loading');
       renderStatus($('cleanStatus'), state.cleanTest);
-      $('cleanKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
-      $('cleanModelLabel').textContent = modelLabel('cleanup', p, state.settings.cleanup_model);
-      renderMenu($('cleanModelMenu'), MODEL_OPTS.cleanup[p] || [], state.settings.cleanup_model, function (v) {
-        state.settings.cleanup_model = v;
-        state.cleanTest = { s: 'idle', msg: '' };
-        closeMenus(); renderClean(); scheduleSave();
-      });
       renderMenu($('cleanMenu'), CLEAN_OPTS, p, function (v) {
         state.settings.cleanup_provider = v;
         state.settings.cleanup_model = ''; /* a model ID is provider-specific */
@@ -638,7 +768,9 @@
     var model = isTrans ? state.settings.transcription_model : state.settings.cleanup_model;
     var key = (isTrans ? $('transKey').value : $('cleanKey').value).trim();
     var field = isTrans ? 'transTest' : 'cleanTest';
-    if (!key) {
+    if (provider === 'local') {
+      key = ''; /* on-device: test() checks the model file, no key involved */
+    } else if (!key) {
       state[field] = { s: 'invalid', msg: 'Enter your API key above first.' };
       isTrans ? renderTrans() : renderClean();
       return;
@@ -756,6 +888,9 @@
     if (!open) { state.menu = 'cleanModel'; show($('cleanModelMenu'), true); show($('overlay'), true); }
   });
   $('overlay').addEventListener('click', closeMenus);
+
+  $('transLocalPanel').addEventListener('click', function (e) { lmAction(e, 'transcription'); });
+  $('cleanLocalPanel').addEventListener('click', function (e) { lmAction(e, 'cleanup'); });
 
   $('transKey').addEventListener('input', function () {
     state.settings[KEY_FIELD[state.settings.transcription_provider]] = this.value;
@@ -899,7 +1034,8 @@
             (t.s === 'loading' ? '<span class="spinner"></span>' : '<span>Test</span>') + '</button>' +
         '</div></div>' +
         '<div class="ob-status">' + statusHtml + '</div>' +
-        '<button class="key-link" data-ob="keypage" style="margin:0; padding:0;">Get a free ' + LABEL[p] + ' key →</button>');
+        '<button class="key-link" data-ob="keypage" style="margin:0; padding:0;">Get a free ' + LABEL[p] + ' key →</button>' +
+        '<button class="ob-link" data-ob="local">Prefer on-device models? Use local instead →</button>');
       foot = '<button class="ob-btn" data-ob="next"' + (t.s === 'valid' ? '' : ' disabled') + '>Continue</button>' +
              '<button class="ob-link" data-ob="next-skip">Skip for now</button>';
     } else {
@@ -951,6 +1087,15 @@
     else if (action === 'mic-settings') openPane('Privacy_Microphone');
     else if (action === 'a11y') invoke('request_accessibility').catch(function () {});
     else if (action === 'keypage') openKeyPage(state.settings.transcription_provider);
+    else if (action === 'local') {
+      /* Zero-key path: switch transcription to on-device models and move on.
+         The model itself is downloaded from the settings view underneath. */
+      state.settings.transcription_provider = 'local';
+      state.settings.transcription_model = '';
+      state.transTest = { s: 'idle', msg: '' };
+      doSave(); renderTrans();
+      ob.step += 1; renderOnboard();
+    }
     else if (action === 'finish') {
       ob.active = false;
       show($('onboard'), false);
@@ -984,6 +1129,7 @@
   refreshPerms();
   setInterval(refreshPerms, 3000);
   refreshAutostart();
+  refreshLocalModels();
 
   invoke('get_onboarded').then(function (done) {
     if (done === false) startOnboarding();
@@ -1002,6 +1148,14 @@
       state.pillError = true;
       renderPill();
       toast(String(ev.payload));
+    });
+    TAURI.event.listen('model-download-progress', function (ev) {
+      var p = ev.payload || {};
+      if (p.error) { toast(String(p.error)); refreshLocalModels(); return; }
+      if (p.done) { refreshLocalModels(); return; }
+      var m = state.localModels.filter(function (x) { return x.id === p.id; })[0];
+      if (m) { m.state = 'downloading'; m.pct = p.pct || 0; }
+      rerenderLocalPanels();
     });
   }
 })();
