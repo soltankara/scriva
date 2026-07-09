@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod inject;
 mod menu_width;
+mod models;
 mod overlay;
 pub(crate) use scriva_core::providers;
 
@@ -286,11 +287,7 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
     };
 
     // Where downloaded on-device models live; only "local" providers read it.
-    let models_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| "Couldn't resolve the app data directory.".to_string())?
-        .join("models");
+    let models_dir = models::models_dir(app)?;
 
     // 4. Transcribe (required).
     let transcriber =
@@ -387,12 +384,21 @@ pub fn run() {
             commands::request_microphone,
             commands::get_onboarded,
             commands::set_onboarded,
+            models::list_local_models,
+            models::download_model,
+            models::cancel_download,
+            models::delete_model,
         ])
         .setup(|app| {
             // Load settings and manage state before registering the hotkey.
             let settings = config::load(app.handle());
             let stored_combo = settings.hotkey.clone();
             app.manage(AppState::new(settings));
+            app.manage(models::Downloads::default());
+
+            // A download killed by quit/crash leaves a `*.part` behind — sweep
+            // them so they never linger (best-effort, errors ignored).
+            models::sweep_stale_parts(app.handle());
 
             // Show the Settings window on manual launches (a launched menu-bar
             // app that shows nothing reads as broken); login launches carry the

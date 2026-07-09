@@ -3304,6 +3304,7 @@ dependencies = [
  "cpal",
  "dotenvy",
  "objc2",
+ "reqwest 0.12.28",
  "scriva-core",
  "serde",
  "serde_json",

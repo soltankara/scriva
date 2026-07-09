@@ -2,7 +2,7 @@
 //! Shapes here must match what `src/index.html` sends and reads.
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 use crate::config::{self, Settings};
 use crate::{apply_hotkey, audio, inject, providers, AppState};
@@ -47,11 +47,7 @@ pub async fn test_provider(
     model: String,
 ) -> Result<String, String> {
     // Where downloaded on-device models live; only "local" providers read it.
-    let models_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| "Couldn't resolve the app data directory.".to_string())?
-        .join("models");
+    let models_dir = crate::models::models_dir(&app)?;
 
     match layer.as_str() {
         "transcription" => {

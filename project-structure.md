@@ -137,6 +137,14 @@ scriva/
         │                            #   NSMenuDidBeginTrackingNotification (objc2 + block2) and
         │                            #   calls setMinimumWidth: on our 4-item tray menu (guard
         │                            #   must stay in sync with the menu built in lib.rs).
+        ├── models.rs                # Local-model download manager (M3): models_dir() helper
+        │                            #   (<app data>/models — single source of truth, used by
+        │                            #   run_pipeline + test_provider too), Downloads managed
+        │                            #   state (in-flight map: cancel flag + pct), IPC commands
+        │                            #   list_local_models / download_model / cancel_download /
+        │                            #   delete_model, streaming download to .part with size
+        │                            #   sanity check + atomic rename, model-download-progress
+        │                            #   events to "main", startup sweep of stale .part files.
         ├── commands.rs              # The nine #[tauri::command] IPC handlers (contract in
         │                            #   CLAUDE.md): load/save settings, test_provider, set_hotkey,
         │                            #   check_permissions, request_microphone, request_accessibility,
