@@ -20,17 +20,17 @@ deletes a file or folder, update `project-structure.md` in the same change.
 refer to it as `project-description.md` — the real filename is `project-desc.md`).
 Read it before non-trivial changes.
 
-**Current milestone: M2** (distributable macOS app: `.dmg` packaging, code
-signing + notarization, first-run onboarding, auto-start, tray polish). M1 is
-done. Do not pull M3+ scope (local Whisper, streaming, Windows/Linux) forward
-unless explicitly asked.
+**Current milestone: M3** (fully-local dictation: on-device Whisper
+transcription + on-device cleanup LLM, in-app model download, zero-key offline
+config). M1 and M2 are done. Do not pull M4+ scope (streaming, Windows/Linux)
+forward unless explicitly asked.
 
 ## Pipeline
 
 ```
 hold hotkey → record mic (cpal) → release
-  → Transcriber (audio → raw text)     required   Groq whisper-large-v3 (default) | OpenAI whisper-1
-  → Cleaner     (raw → polished text)  optional   none (default) | Claude Haiku | OpenAI gpt-4o-mini | Gemini 2.0 Flash
+  → Transcriber (audio → raw text)     required   Groq whisper-large-v3 (default) | OpenAI whisper-1 | Local whisper.cpp
+  → Cleaner     (raw → polished text)  optional   none (default) | Claude Haiku | OpenAI gpt-4o-mini | Gemini 2.0 Flash | Local llama.cpp
   → inject text into focused app (CGEvent Unicode path, chunked)
 ```
 
@@ -39,6 +39,18 @@ pin a model ID; `""` (default) means the adapter's built-in `const MODEL`, so
 untouched users follow future default upgrades. The UI's curated model lists
 live in `src/index.html` (`MODEL_OPTS`); switching provider resets the layer's
 model to `""`.
+
+**Local provider (`"local"`, both layers):** no API key. The model field holds
+a curated on-device model id from `crates/scriva-core/src/registry.rs`
+(`""` = default: `whisper-small` / `llama-3.2-3b`). Model files live in
+`<app-data>/models/` (`~/Library/Application Support/com.scriva.app/models/`),
+downloaded in-app via `src-tauri/src/models.rs`. Engines: `whisper-rs` 0.16
+and `llama-cpp-2` (pinned `=0.1.151` — its 0.1.x API churns), Metal on macOS,
+behind scriva-core's `local-models` cargo feature (default OFF so
+`cargo test -p scriva-core` never needs cmake; `src-tauri` turns it on).
+Loaded models are cached in adapter statics keyed by file path (~0.5–2.5 GB
+RAM each); `save_settings` unloads a layer's cache when it leaves `"local"`
+and re-warms after every save via `warm_local_models`.
 
 ## Architecture invariants (do not break)
 
@@ -49,9 +61,10 @@ model to `""`.
    never appear in the transcription factory or any transcription dropdown.
 3. **Latency is the product.** Groq is the default transcriber. Keep the hot
    path (capture → encode → POST → inject) lean.
-4. Every adapter exposes a cheap `test()` (models-list round-trip) so the
-   settings UI can validate keys immediately with human-readable errors
-   ("Groq returned 401 — API key rejected"). Never fail silently.
+4. Every adapter exposes a cheap `test()` (models-list round-trip; for local
+   adapters, file-exists + magic-bytes) so the settings UI can validate setup
+   immediately with human-readable errors ("Groq returned 401 — API key
+   rejected"). Never fail silently.
 5. **No secret/transcript leakage.** No logging of API keys, audio, or
    transcripts — even in debug builds. `Settings` has no `Debug` derive.
    `.env` is dev-only (debug builds), git-ignored; vars: `SCRIVA_GROQ_KEY`,
@@ -67,6 +80,10 @@ model to `""`.
    (UniFFI) and Windows shells reuse: provider layer, audio processing
    (`to_wav_16k_mono`), settings model. Platform concerns — capture, injection,
    settings persistence, hotkeys, tray — live in the shell (`src-tauri`).
+   Sanctioned exception: the opt-in `local-models` feature adds `whisper-rs`,
+   `llama-cpp-2` (cross-platform C++ embeds; `metal` only via the macOS target
+   table) and a minimal `tokio` `rt` dep for `spawn_blocking`. Core's DEFAULT
+   feature set stays free of all of them.
 
 ## IPC contract (settings UI ↔ Rust)
 
@@ -81,6 +98,10 @@ model to `""`.
 | `request_accessibility()` | AX prompt + deep-link to System Settings a11y pane. |
 | `get_onboarded() -> bool` | First-run flag; drives the onboarding layer in the UI. Stored as a sibling `onboarded` key in the settings store, deliberately outside core's `Settings`. |
 | `set_onboarded()` | Mark onboarding complete. One-way — delete the store file to re-run onboarding. |
+| `list_local_models() -> Vec<row>` | Registry × disk × in-flight downloads: `{id, layer, label, size_mb, sub, state: "downloaded"\|"not"\|"downloading", pct}`. |
+| `download_model(id)` | Spawns a streaming download to `<file>.part` (atomic rename on success, ±20% size sanity check), returns immediately; progress arrives via the `model-download-progress` event. Errs on unknown/duplicate/already-downloaded. |
+| `cancel_download(id)` | Sets the in-flight cancel flag; the download task removes its `.part` and emits a calm "Download cancelled." |
+| `delete_model(id)` | Removes the model file (+ stale `.part`); refuses while that model is downloading. |
 
 Auto-start uses `tauri-plugin-autostart` (LaunchAgent variant): the UI calls
 `plugin:autostart|is_enabled` / `enable` / `disable` directly — the LaunchAgent
@@ -94,7 +115,10 @@ was enabled before the flag existed, re-toggle it to refresh the plist.
 UI test-status shape: `{ s: 'idle'|'loading'|'valid'|'invalid', msg }`.
 Hotkey stored as UI tokens (e.g. `["⌥","Space"]`); mapped to plugin
 accelerators (`Alt+Space`) in `config.rs` (⌘→Super, ⌥→Alt, ⌃→Control, ⇧→Shift).
-Rust → UI events: `recording-state` (bool) and `pipeline-error` (string).
+Rust → UI events: `recording-state` (bool), `pipeline-error` (string), and
+`model-download-progress` (`{id, pct, done?, error?}`, throttled to whole-%
+steps ≥200ms; the UI re-renders only the model panels on ticks so key inputs
+never lose focus).
 
 ## Agent delegation
 
@@ -109,9 +133,11 @@ Rust → UI events: `recording-state` (bool) and `pipeline-error` (string).
 
 ```sh
 npm install            # once; installs @tauri-apps/cli
+brew install cmake     # once; whisper.cpp/llama.cpp build via cmake
 npm run tauri dev      # run the app from source
-cargo check            # fast compile gate (repo root; covers core + shell)
-cargo test -p scriva-core   # core unit tests (audio processing)
+cargo check            # fast compile gate (repo root; covers core + shell,
+                       #   incl. the C++ engines — first build ~1-2 min extra)
+cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off)
 ```
 
 ## macOS gotchas
@@ -170,6 +196,15 @@ cargo test -p scriva-core   # core unit tests (audio processing)
   editing only `src/*.html` is a no-op that keeps the OLD embedded assets
   (same trap as Info.plist). `touch src-tauri/src/lib.rs` before
   `npm run tauri build` to force the re-embed.
+- **ggml Metal asserts at exit if a local model is still loaded**: the adapter
+  caches are statics (never dropped), and ggml's Metal teardown runs
+  `GGML_ASSERT(residency sets == 0)` in an atexit destructor — abort (SIGABRT)
+  on quit. `lib.rs` handles this: `RunEvent::Exit` calls
+  `unload_local_transcriber/cleaner()` before the process exits. Keep that if
+  the run loop is ever restructured.
+- llama.cpp logs are silenced via `void_logs()` and whisper via
+  `install_logging_hooks()`, but a few `ggml_metal_device_init:` lines still
+  reach stderr on first model load — device info only, no transcript content.
 - Sweep AppleDouble junk after editing files and before builds:
   `find src src-tauri -name '._*' -delete` — `generate_context!` embeds
   everything in `src/` (a stray `._overlay.html` would ship inside the app),

@@ -182,23 +182,32 @@ Scope:
 **Definition of done:** download a `.dmg`, drag to Applications, open with no
 scary warnings, complete onboarding, dictate.
 
-### Milestone 3 — Local / offline transcription
+### Milestone 3 — Fully local / offline dictation ✅ done (2026-07-09)
 **Target device:** macOS (Apple Silicon benefits most).
 **Goal:** remove the hard dependency on a cloud key; enable fully private,
-offline, zero-cost transcription.
+offline, zero-cost dictation.
+**Scope expansion (user decision, 2026-07-09):** not just transcription — the
+cleanup layer got a local option too, via embedded llama.cpp with the same
+in-app model download UX (no Ollama or external server required).
 
-Scope:
-- Add a **local Whisper** transcriber (e.g. `whisper.cpp` / a Rust binding) as a
-  new `Transcriber` adapter — proving the M1 abstraction pays off, since this
-  should slot in without touching the pipeline.
-- Model download/management UX (pick model size: tiny/base/small/medium for the
-  speed-vs-accuracy tradeoff).
-- "Local" becomes a transcription option alongside Groq/OpenAI; cleanup can
-  still be cloud or skipped. A fully offline configuration (local transcribe +
-  cleanup "none") must work with **zero API keys**.
+Shipped:
+- **Local Whisper** transcriber (`whisper.cpp` via `whisper-rs`, Metal) as a
+  new `Transcriber` adapter — the M1 abstraction paid off: it slotted in
+  without touching the pipeline (adapters still receive the 16 kHz mono WAV).
+- **Local cleanup LLM** (`llama.cpp` via `llama-cpp-2`, Metal) as a new
+  `Cleaner` adapter reusing CLEANUP_PROMPT verbatim (self-corrections +
+  injection hardening included).
+- Curated model registry (`scriva-core/src/registry.rs`): Whisper
+  tiny/base/small/large-v3-turbo-q5 + Llama 3.2 1B/3B + Qwen3 4B Instruct;
+  in-app download with progress/cancel/delete (`src-tauri/src/models.rs`).
+- "Local (on-device)" appears in both provider dropdowns; zero-key fully
+  offline config works. Loaded models are cached in RAM between dictations
+  and warmed at startup/save; unloaded when a layer leaves local and on quit.
 
 **Definition of done:** with no API keys configured, the user can dictate using
-an on-device model, and no audio leaves the machine.
+an on-device model, and no audio leaves the machine. Verified 2026-07-09 with
+engine-level smoke tests (whisper-tiny transcribed synthetic speech in ~320 ms;
+Llama 3.2 3B and Qwen3 4B both applied spoken self-corrections correctly).
 
 ### Milestone 4 — Streaming transcription
 **Target device:** macOS.

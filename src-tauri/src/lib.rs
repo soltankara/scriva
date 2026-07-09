@@ -544,5 +544,13 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-    app.run(|_app_handle, _event| {});
+    app.run(|_app_handle, event| {
+        // Drop any cached local models before the process exits: the caches
+        // are statics (never dropped), and ggml's Metal teardown asserts if
+        // residency sets are still alive at exit — an abort on tray-Quit.
+        if let tauri::RunEvent::Exit = event {
+            scriva_core::providers::unload_local_transcriber();
+            scriva_core::providers::unload_local_cleaner();
+        }
+    });
 }

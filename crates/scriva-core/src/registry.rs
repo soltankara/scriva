@@ -76,7 +76,7 @@ pub const MODELS: &[ModelInfo] = &[
         file_name: "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
         url: "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
         size_mb: 770,
-        sub: "Fastest cleanup",
+        sub: "Fastest · may miss spoken corrections",
     },
     ModelInfo {
         id: "llama-3.2-3b",

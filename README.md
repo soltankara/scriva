@@ -17,18 +17,41 @@ picked, directly from your machine.
 
 ```
 hold hotkey → record → release
-  → Transcription  (audio → text)      Groq whisper-large-v3 (default) or OpenAI whisper-1
-  → Cleanup        (optional polish)   None (default), Claude, OpenAI, or Gemini
+  → Transcription  (audio → text)      Groq whisper-large-v3 (default), OpenAI whisper-1,
+                                       or Local (on-device whisper.cpp)
+  → Cleanup        (optional polish)   None (default), Claude, OpenAI, Gemini,
+                                       or Local (on-device llama.cpp)
   → text is typed into the focused app
 ```
 
 The cleanup layer removes filler words ("um", "uh"), fixes punctuation and
-capitalization, and never changes your meaning. Claude appears only as a
+capitalization, applies your spoken self-corrections ("at five — actually,
+make it ten"), and never changes your meaning. Claude appears only as a
 cleanup option — Anthropic has no speech-to-text API.
 
 Each provider also has a model picker in Settings (e.g. Groq's faster
 `whisper-large-v3-turbo`, or Claude Sonnet for maximum cleanup quality).
 "Default" follows the app's recommended model for that provider.
+
+## Fully offline — no keys, no cloud
+
+Pick **Local (on-device)** for either layer (or both) in Settings and download
+a model right in the app. With local transcription + local (or no) cleanup,
+dictation needs **zero API keys and zero network** — audio and text never
+leave your Mac. Models run on Apple Silicon's GPU via Metal.
+
+| Model | Layer | Size | Notes |
+|---|---|---|---|
+| Whisper Tiny / Base / Small | transcription | 74 / 141 / 465 MB | Small is the recommended balance |
+| Whisper Large v3 Turbo (q5) | transcription | 547 MB | best accuracy, a bit slower |
+| Llama 3.2 1B (Q4_K_M) | cleanup | 0.8 GB | fastest, may miss spoken corrections |
+| Llama 3.2 3B (Q4_K_M) | cleanup | 1.9 GB | recommended default |
+| Qwen3 4B Instruct (Q4_K_M) | cleanup | 2.3 GB | best quality |
+
+Downloaded models are stored in
+`~/Library/Application Support/com.scriva.app/models/`. A selected local model
+stays loaded in RAM between dictations (that's what makes it fast); switching
+back to a cloud provider frees it.
 
 ## Install (macOS)
 
@@ -41,8 +64,10 @@ Each provider also has a model picker in Settings (e.g. Groq's faster
 
 ## Getting started (Milestone 1 — run from source)
 
-Requirements: macOS 12+, [Rust](https://rustup.rs), Node.js, and at least one
-API key (a free [Groq](https://console.groq.com) key is the fastest way in).
+Requirements: macOS 12+, [Rust](https://rustup.rs), Node.js, and cmake
+(`brew install cmake` — the on-device engines build from C++). Either an API
+key (a free [Groq](https://console.groq.com) key is the fastest way in) or a
+downloaded local model gets you dictating.
 
 ```sh
 git clone <this repo> && cd scriva
@@ -113,6 +138,7 @@ You pay your chosen provider directly, per use. Rough orders of magnitude
 
 | Provider | Used for | Ballpark |
 |---|---|---|
+| Local (whisper.cpp / llama.cpp) | both | free — runs on your Mac |
 | Groq (whisper-large-v3) | transcription | ~$0.04–0.11 per hour of audio |
 | OpenAI (whisper-1) | transcription | ~$0.36 per hour of audio |
 | Claude (Haiku) | cleanup | fractions of a cent per dictation |
@@ -133,7 +159,8 @@ Typical daily dictation use costs pennies per month.
 
 - **M1 (done):** macOS MVP — the full pipeline, run from source.
 - **M2 (done):** Signed, notarized `.dmg` with first-run onboarding.
-- **M3:** Local/offline transcription (whisper.cpp) — zero keys, zero cloud.
+- **M3 (done):** Fully local dictation — on-device Whisper transcription *and*
+  on-device cleanup LLM, in-app model downloads, zero keys, zero cloud.
 - **M4:** Streaming transcription — text appears as you speak.
 - **M5:** Windows and Linux.
 
