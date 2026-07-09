@@ -116,28 +116,43 @@
     border: none; background: transparent; margin-left: auto; padding: 0 0 0 10px;
     color: var(--accent); font-size: 11.5px; font-weight: 500; white-space: nowrap;
   }
-  .key-flex.local { justify-content: flex-end; }
-
   /* Local on-device model list (provider = Local) */
-  .lm-list { padding: 5px 8px 2px; }
-  .lm-row { display: flex; align-items: center; gap: 10px; padding: 9px 7px; border-radius: 8px; }
+  .lm-list { padding: 5px 8px 3px; }
+  .lm-row { display: flex; align-items: center; gap: 11px; padding: 10px 8px; border-radius: 9px; }
   .lm-row.pickable { cursor: pointer; }
   .lm-row.sel { background: rgba(94,92,230,.08); }
   [data-theme="dark"] .lm-row.sel { background: rgba(125,122,255,.15); }
-  .lm-radio { flex: none; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--text3); }
+  .lm-radio { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--text3); }
   .lm-radio.off { opacity: .3; }
-  .lm-row.sel .lm-radio { border: 4.5px solid var(--accent); }
-  .lm-name { font-size: 13.5px; font-weight: 500; }
-  .lm-sub { font-size: 11.5px; color: var(--text2); margin-top: 1px; }
+  .lm-row.sel .lm-radio { border: 5px solid var(--accent); }
+  .lm-name { font-size: 14px; font-weight: 600; }
+  .lm-name-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .lm-chip {
+    flex: none; font-size: 10px; font-weight: 600; color: var(--accent);
+    background: rgba(94,92,230,.12); border: .5px solid rgba(94,92,230,.25);
+    border-radius: 9px; padding: 1.5px 7px;
+  }
+  [data-theme="dark"] .lm-chip { background: rgba(125,122,255,.18); border-color: rgba(125,122,255,.35); }
+  .lm-meta { display: flex; align-items: center; gap: 11px; font-size: 11.5px; color: var(--text2); margin-top: 3px; }
+  .lm-size.got { color: var(--ok); font-weight: 500; }
+  .lm-rate { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .lm-dots { display: inline-flex; align-items: center; gap: 3px; }
+  .lm-dot { width: 5.5px; height: 5.5px; border-radius: 50%; background: var(--bar); }
+  [data-theme="dark"] .lm-dot { background: var(--card2); }
+  .lm-dot.on { background: var(--accent); }
+  .lm-inuse { flex: none; font-size: 12.5px; font-weight: 600; color: var(--accent); }
   .lm-get {
     flex: none; border: .5px solid var(--accent); background: transparent; color: var(--accent);
-    border-radius: 7px; padding: 5px 11px; font-size: 12px; font-weight: 600;
+    border-radius: 14px; padding: 5px 14px; font-size: 12px; font-weight: 600;
   }
   .lm-pct { flex: none; font-size: 11px; color: var(--text2); min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
   .lm-bar { flex: none; width: 78px; height: 5px; border-radius: 3px; background: var(--bar); overflow: hidden; }
   .lm-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .2s linear; }
   .lm-x { flex: none; border: none; background: transparent; color: var(--text3); font-size: 13px; padding: 3px 5px; display: flex; align-items: center; }
   .lm-x:hover { color: var(--bad); }
+  .lm-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: .5px solid var(--sep); margin-top: 5px; padding: 10px 8px 9px; }
+  .lm-total { font-size: 12px; color: var(--text2); }
+  .lm-status { padding: 0 8px 8px; }
 
   /* Toggle switch */
   .switch {
@@ -269,7 +284,10 @@
     <div class="sec-label">Transcription · Required</div>
     <div class="card">
       <div class="row row-sep">
-        <span class="row-title">Provider</span>
+        <div style="flex:1; min-width:0; padding-right:12px;">
+          <div class="row-title">Provider</div>
+          <div class="row-sub" id="transProviderSub"></div>
+        </div>
         <button id="transDD" class="dd-btn"><span id="transLabel">Groq</span> <span class="chev">▾</span></button>
         <div id="transMenu" class="menu hidden"></div>
       </div>
@@ -279,8 +297,8 @@
         <div id="transModelMenu" class="menu hidden"></div>
       </div>
       <div id="transLocalPanel" class="lm-list hidden"></div>
-      <div class="key-area">
-        <div class="key-flex" id="transKeyFlex">
+      <div class="key-area" id="transKeyArea">
+        <div class="key-flex">
           <div class="key-wrap" id="transKeyWrap">
             <input id="transKey" type="password" spellcheck="false" autocomplete="off" autocapitalize="off">
             <button id="transEye" class="eye" title="Show / hide"></button>
@@ -299,16 +317,12 @@
   <div class="sec">
     <div class="sec-label">Cleanup · Optional</div>
     <div class="card">
-      <div class="row" id="cleanToggleRow">
+      <div class="row" id="cleanProviderRow">
         <div style="flex:1; min-width:0; padding-right:12px;">
-          <div class="row-title">Polish transcript</div>
-          <div class="row-sub">Remove filler words, fix punctuation &amp; capitalization — never your meaning.</div>
+          <div class="row-title">Polish</div>
+          <div class="row-sub" id="cleanProviderSub"></div>
         </div>
-        <button id="cleanToggle" class="switch" role="switch" aria-checked="false" aria-label="Enable cleanup"></button>
-      </div>
-      <div class="row hidden" id="cleanProviderRow">
-        <span class="row-title">Provider</span>
-        <button id="cleanDD" class="dd-btn"><span id="cleanLabel">Claude</span> <span class="chev">▾</span></button>
+        <button id="cleanDD" class="dd-btn"><span id="cleanLabel">None</span> <span class="chev">▾</span></button>
         <div id="cleanMenu" class="menu hidden"></div>
       </div>
       <div class="row hidden" id="cleanModelRow">
@@ -318,7 +332,7 @@
       </div>
       <div id="cleanLocalPanel" class="lm-list hidden"></div>
       <div id="cleanKeyArea" class="key-area hidden" style="padding-top:11px;">
-        <div class="key-flex" id="cleanKeyFlex">
+        <div class="key-flex">
           <div class="key-wrap" id="cleanKeyWrap">
             <input id="cleanKey" type="password" spellcheck="false" autocomplete="off" autocapitalize="off">
             <button id="cleanEye" class="eye" title="Show / hide"></button>
@@ -483,14 +497,30 @@
     { value: 'local', label: 'Local (on-device)', sub: 'Private · offline · no API key' }
   ];
   var CLEAN_OPTS = [
+    { value: 'none', label: 'None', sub: 'Type the transcript exactly as heard' },
     { value: 'claude', label: 'Claude', sub: 'Best writing quality' },
     { value: 'openai', label: 'OpenAI', sub: 'GPT mini models · cheap & fast' },
     { value: 'gemini', label: 'Gemini', sub: 'Flash models · cheap & fast' },
     { value: 'local', label: 'Local (on-device)', sub: 'Private · offline · no API key' }
   ];
+  function optSub(opts, v) {
+    for (var i = 0; i < opts.length; i++) if (opts[i].value === v) return opts[i].sub;
+    return '';
+  }
   /* Local model ids come from core's registry (list_local_models); a stored
-     model of '' means the curated default, mirrored here for the radio UI. */
+     model of '' means the curated default, mirrored here for the radio UI.
+     LOCAL_META is presentation-only: 0-3 dot ratings, the short name for the
+     Test button, and the Recommended chip. */
   var DEFAULT_LOCAL = { transcription: 'whisper-small', cleanup: 'llama-3.2-3b' };
+  var LOCAL_META = {
+    'whisper-tiny':           { speed: 3, acc: 1, short: 'Tiny' },
+    'whisper-base':           { speed: 3, acc: 2, short: 'Base' },
+    'whisper-small':          { speed: 2, acc: 2, short: 'Small', rec: true },
+    'whisper-large-v3-turbo': { speed: 1, acc: 3, short: 'Turbo' },
+    'llama-3.2-1b':           { speed: 3, acc: 1, short: '1B' },
+    'llama-3.2-3b':           { speed: 2, acc: 2, short: '3B', rec: true },
+    'qwen3-4b-2507':          { speed: 1, acc: 3, short: 'Qwen 4B' }
+  };
 
   var state = {
     settings: {
@@ -512,9 +542,6 @@
     menu: '',
     dark: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
   };
-  /* Remembered so the cleanup toggle can restore the last provider after off→on. */
-  var lastCleanProvider = 'claude';
-
   function $(id) { return document.getElementById(id); }
   function show(el, on) { el.classList.toggle('hidden', !on); }
 
@@ -565,30 +592,74 @@
 
   function lmSize(mb) { return mb >= 1000 ? (mb / 1024).toFixed(1) + ' GB' : mb + ' MB'; }
 
+  function lmDots(n) {
+    var h = '<span class="lm-dots">';
+    for (var i = 1; i <= 3; i++) h += '<span class="lm-dot' + (i <= n ? ' on' : '') + '"></span>';
+    return h + '</span>';
+  }
+
   function renderLocalList(el, layer, current) {
     el.innerHTML = '';
-    state.localModels.filter(function (m) { return m.layer === layer; }).forEach(function (m) {
+    var models = state.localModels.filter(function (m) { return m.layer === layer; });
+    var selId = current || DEFAULT_LOCAL[layer];
+    models.forEach(function (m) {
+      var meta = LOCAL_META[m.id] || {};
       var got = m.state === 'downloaded';
-      var sel = got && (current ? current === m.id : m.id === DEFAULT_LOCAL[layer]);
+      var sel = got && m.id === selId;
       var row = document.createElement('div');
       row.className = 'lm-row' + (sel ? ' sel' : '') + (got ? ' pickable' : '');
       if (got) row.setAttribute('data-pick', m.id);
       var html = '<span class="lm-radio' + (got ? '' : ' off') + '"></span>' +
-        '<div style="flex:1; min-width:0;"><div class="lm-name"></div><div class="lm-sub"></div></div>';
+        '<div style="flex:1; min-width:0;">' +
+          '<div class="lm-name-row"><span class="lm-name"></span>' +
+            (meta.rec ? '<span class="lm-chip">Recommended</span>' : '') + '</div>' +
+          '<div class="lm-meta">' +
+            '<span class="lm-size' + (got ? ' got' : '') + '">' + lmSize(m.size_mb) + (got ? ' on disk' : ' download') + '</span>' +
+            '<span class="lm-rate">Speed ' + lmDots(meta.speed || 0) + '</span>' +
+            '<span class="lm-rate">Accuracy ' + lmDots(meta.acc || 0) + '</span>' +
+          '</div>' +
+        '</div>';
       if (m.state === 'downloading') {
         html += '<span class="lm-pct">' + (m.pct || 0) + '%</span>' +
           '<div class="lm-bar"><i style="width:' + (m.pct || 0) + '%"></i></div>' +
           '<button class="lm-x" data-lm="cancel" data-id="' + m.id + '" title="Cancel download">✕</button>';
+      } else if (sel) {
+        /* The in-use model can't be deleted — switch first, then trash. */
+        html += '<span class="lm-inuse">In use</span>';
       } else if (got) {
         html += '<button class="lm-x" data-lm="delete" data-id="' + m.id + '" title="Delete from disk">' + TRASH + '</button>';
       } else {
-        html += '<button class="lm-get" data-lm="download" data-id="' + m.id + '">Download</button>';
+        html += '<button class="lm-get" data-lm="download" data-id="' + m.id + '">Get</button>';
       }
       row.innerHTML = html;
       row.querySelector('.lm-name').textContent = m.label;
-      row.querySelector('.lm-sub').textContent = lmSize(m.size_mb) + ' · ' + m.sub;
       el.appendChild(row);
     });
+
+    /* Footer: on-disk total for this layer + a Test button for the selected
+       model. Status (✓/✕) renders beneath, mirroring the key-area pattern. */
+    var onDisk = models.filter(function (m) { return m.state === 'downloaded'; });
+    var totalMb = 0;
+    onDisk.forEach(function (m) { totalMb += m.size_mb; });
+    var t = layer === 'transcription' ? state.transTest : state.cleanTest;
+    var short = (LOCAL_META[selId] || {}).short || '';
+    var foot = document.createElement('div');
+    foot.className = 'lm-foot';
+    foot.innerHTML =
+      '<span class="lm-total">' + lmSize(totalMb) + ' on disk · ' + onDisk.length + (onDisk.length === 1 ? ' model' : ' models') + '</span>' +
+      '<button class="test-btn" data-lm="test"' + (t.s === 'loading' ? ' disabled' : '') + '>' +
+        (t.s === 'loading' ? '<span class="spinner"></span>' : '<span>Test' + (short ? ' ' + short : '') + '</span>') +
+      '</button>';
+    el.appendChild(foot);
+    if (t.s === 'valid' || t.s === 'invalid') {
+      var st = document.createElement('div');
+      st.className = 'lm-status';
+      var inner = document.createElement('div');
+      inner.className = 'status ' + (t.s === 'valid' ? 'valid' : 'invalid');
+      inner.textContent = (t.s === 'valid' ? '✓ ' : '✕ ') + t.msg;
+      st.appendChild(inner);
+      el.appendChild(st);
+    }
   }
 
   /* Re-render only the visible model lists — never the key inputs, so a
@@ -611,6 +682,10 @@
     var btn = e.target.closest('[data-lm]');
     if (btn) {
       var id = btn.getAttribute('data-id'), act = btn.getAttribute('data-lm');
+      if (act === 'test') {
+        runTest(layer === 'transcription' ? 'transcription' : 'cleanup');
+        return;
+      }
       if (act === 'download') {
         invoke('download_model', { id: id }).catch(function (err) { toast(String(err)); refreshLocalModels(); });
         var m = state.localModels.filter(function (x) { return x.id === id; })[0];
@@ -642,13 +717,12 @@
     var p = state.settings.transcription_provider;
     var isLocal = p === 'local';
     $('transLabel').textContent = LABEL[p];
-    /* Local swaps the model dropdown + key input for the on-device model list;
-       the Test button stays (it verifies the selected model file loads). */
+    $('transProviderSub').textContent = optSub(TRANS_OPTS, p);
+    /* Local swaps the model dropdown + key area for the on-device model list
+       (which carries its own footer Test button). */
     show($('transModelRow'), !isLocal);
     show($('transLocalPanel'), isLocal);
-    show($('transKeyWrap'), !isLocal);
-    show($('transKeyLink'), !isLocal);
-    $('transKeyFlex').classList.toggle('local', isLocal);
+    show($('transKeyArea'), !isLocal);
     if (isLocal) {
       renderLocalList($('transLocalPanel'), 'transcription', state.settings.transcription_model);
     } else {
@@ -663,9 +737,9 @@
         state.transTest = { s: 'idle', msg: '' };
         closeMenus(); renderTrans(); scheduleSave();
       });
+      renderTestBtn($('transTest'), state.transTest.s === 'loading');
+      renderStatus($('transStatus'), state.transTest);
     }
-    renderTestBtn($('transTest'), state.transTest.s === 'loading');
-    renderStatus($('transStatus'), state.transTest);
     renderMenu($('transMenu'), TRANS_OPTS, p, function (v) {
       state.settings.transcription_provider = v;
       state.settings.transcription_model = ''; /* a model ID is provider-specific */
@@ -678,45 +752,37 @@
     var p = state.settings.cleanup_provider;
     var on = p !== 'none';
     var isLocal = p === 'local';
-    $('cleanToggle').classList.toggle('on', on);
-    $('cleanToggle').setAttribute('aria-checked', on ? 'true' : 'false');
-    $('cleanToggleRow').classList.toggle('row-sep', on);
-    show($('cleanProviderRow'), on);
+    $('cleanLabel').textContent = LABEL[p];
+    $('cleanProviderSub').textContent = on ? optSub(CLEAN_OPTS, p)
+      : 'Remove filler words, fix punctuation & capitalization — never your meaning.';
     $('cleanProviderRow').classList.toggle('row-sep', on);
     show($('cleanModelRow'), on && !isLocal);
-    $('cleanModelRow').classList.toggle('row-sep', on);
+    $('cleanModelRow').classList.toggle('row-sep', on && !isLocal);
     show($('cleanLocalPanel'), on && isLocal);
-    show($('cleanKeyArea'), on);
-    if (on) {
-      $('cleanLabel').textContent = LABEL[p];
-      show($('cleanKeyWrap'), !isLocal);
-      show($('cleanKeyLink'), !isLocal);
-      $('cleanKeyFlex').classList.toggle('local', isLocal);
-      if (isLocal) {
-        renderLocalList($('cleanLocalPanel'), 'cleanup', state.settings.cleanup_model);
-      } else {
-        $('cleanKey').placeholder = PLACEHOLDER[p] || 'sk-...';
-        $('cleanKey').value = state.settings[KEY_FIELD[p]];
-        $('cleanKey').type = state.showCleanKey ? 'text' : 'password';
-        $('cleanEye').innerHTML = state.showCleanKey ? EYE_OFF : EYE_OPEN;
-        $('cleanKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
-        $('cleanModelLabel').textContent = modelLabel('cleanup', p, state.settings.cleanup_model);
-        renderMenu($('cleanModelMenu'), MODEL_OPTS.cleanup[p] || [], state.settings.cleanup_model, function (v) {
-          state.settings.cleanup_model = v;
-          state.cleanTest = { s: 'idle', msg: '' };
-          closeMenus(); renderClean(); scheduleSave();
-        });
-      }
-      renderTestBtn($('cleanTest'), state.cleanTest.s === 'loading');
-      renderStatus($('cleanStatus'), state.cleanTest);
-      renderMenu($('cleanMenu'), CLEAN_OPTS, p, function (v) {
-        state.settings.cleanup_provider = v;
-        state.settings.cleanup_model = ''; /* a model ID is provider-specific */
-        lastCleanProvider = v;
+    show($('cleanKeyArea'), on && !isLocal);
+    if (isLocal) {
+      renderLocalList($('cleanLocalPanel'), 'cleanup', state.settings.cleanup_model);
+    } else if (on) {
+      $('cleanKey').placeholder = PLACEHOLDER[p] || 'sk-...';
+      $('cleanKey').value = state.settings[KEY_FIELD[p]];
+      $('cleanKey').type = state.showCleanKey ? 'text' : 'password';
+      $('cleanEye').innerHTML = state.showCleanKey ? EYE_OFF : EYE_OPEN;
+      $('cleanKeyLink').textContent = 'Get ' + LABEL[p] + ' key →';
+      $('cleanModelLabel').textContent = modelLabel('cleanup', p, state.settings.cleanup_model);
+      renderMenu($('cleanModelMenu'), MODEL_OPTS.cleanup[p] || [], state.settings.cleanup_model, function (v) {
+        state.settings.cleanup_model = v;
         state.cleanTest = { s: 'idle', msg: '' };
         closeMenus(); renderClean(); scheduleSave();
       });
+      renderTestBtn($('cleanTest'), state.cleanTest.s === 'loading');
+      renderStatus($('cleanStatus'), state.cleanTest);
     }
+    renderMenu($('cleanMenu'), CLEAN_OPTS, p, function (v) {
+      state.settings.cleanup_provider = v;
+      state.settings.cleanup_model = ''; /* a model ID is provider-specific */
+      state.cleanTest = { s: 'idle', msg: '' };
+      closeMenus(); renderClean(); scheduleSave();
+    });
   }
 
   function renderHotkey() {
@@ -828,13 +894,6 @@
       state.dark = e.matches; applyTheme();
     });
   }
-
-  $('cleanToggle').addEventListener('click', function () {
-    var on = state.settings.cleanup_provider !== 'none';
-    state.settings.cleanup_provider = on ? 'none' : lastCleanProvider;
-    state.cleanTest = { s: 'idle', msg: '' };
-    renderClean(); scheduleSave();
-  });
 
   /* "Start at login": the LaunchAgent (tauri-plugin-autostart) is the source
      of truth — no Settings field to drift. Query on load, toggle on click. */
@@ -1121,7 +1180,6 @@
   invoke('load_settings').then(function (s) {
     if (s) {
       state.settings = s;
-      if (s.cleanup_provider && s.cleanup_provider !== 'none') lastCleanProvider = s.cleanup_provider;
       renderTrans(); renderClean(); renderHotkey();
     }
   }).catch(function () {});
