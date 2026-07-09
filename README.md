@@ -51,7 +51,8 @@ leave your Mac. Models run on Apple Silicon's GPU via Metal.
 Downloaded models are stored in
 `~/Library/Application Support/com.scriva.app/models/`. A selected local model
 stays loaded in RAM between dictations (that's what makes it fast); switching
-back to a cloud provider frees it.
+back to a cloud provider frees it, and after ~10 minutes without a dictation
+it is released automatically (and re-warmed the moment you press the hotkey).
 
 ## Install (macOS)
 

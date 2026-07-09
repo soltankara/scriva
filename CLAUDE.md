@@ -50,7 +50,10 @@ behind scriva-core's `local-models` cargo feature (default OFF so
 `cargo test -p scriva-core` never needs cmake; `src-tauri` turns it on).
 Loaded models are cached in adapter statics keyed by file path (~0.5–2.5 GB
 RAM each); `save_settings` unloads a layer's cache when it leaves `"local"`
-and re-warms after every save via `warm_local_models`.
+and re-warms after every save via `warm_local_models`. Caches are also evicted
+after 10 min without a dictation (`LOCAL_IDLE_EVICT_SECS` in
+`src-tauri/src/lib.rs`) and re-warmed on hotkey press, so a post-eviction
+reload hides behind the user's speaking time.
 
 ## Architecture invariants (do not break)
 

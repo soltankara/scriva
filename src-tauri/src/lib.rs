@@ -9,6 +9,7 @@ pub(crate) use scriva_core::providers;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, RwLock};
+use std::time::Instant;
 
 use tauri::{
     menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder},
@@ -19,6 +20,12 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use audio::RecorderHandle;
 use config::Settings;
+
+/// Idle TTL for on-device models (Ollama-style): after this long with no
+/// dictation, cached local models are evicted to free RAM. Pairs with the
+/// press-time re-warm in the hotkey handler, which hides a post-eviction
+/// reload behind the time the user spends speaking.
+const LOCAL_IDLE_EVICT_SECS: u64 = 10 * 60;
 
 /// Managed application state.
 pub struct AppState {
@@ -38,6 +45,10 @@ pub struct AppState {
     /// While false the global shortcut is unregistered — the combo is freed
     /// for other apps, not just swallowed.
     pub enabled: AtomicBool,
+    /// Last dictation activity (hotkey press / pipeline completion). The
+    /// eviction loop in setup() frees cached local models once this is older
+    /// than `LOCAL_IDLE_EVICT_SECS`.
+    pub last_local_use: Mutex<Instant>,
 }
 
 impl AppState {
@@ -48,6 +59,7 @@ impl AppState {
             pipeline_busy: AtomicBool::new(false),
             hotkey: Mutex::new(None),
             enabled: AtomicBool::new(true),
+            last_local_use: Mutex::new(Instant::now()),
         }
     }
 }
@@ -183,6 +195,12 @@ fn on_shortcut_event(app: &AppHandle, event: ShortcutState) {
             if state.recorder.lock().map(|g| g.is_some()).unwrap_or(true) {
                 return;
             }
+            // Dictation is starting: stamp local-model use for the idle-eviction
+            // clock and re-warm any evicted local models (fire-and-forget; no-op
+            // when they're still loaded or no layer is local). The reload runs
+            // while the user speaks, so a post-eviction dictation feels warm.
+            *state.last_local_use.lock().unwrap() = Instant::now();
+            warm_local_models(app);
             match audio::start_recording() {
                 Ok(handle) => {
                     *state.recorder.lock().unwrap() = Some(handle);
@@ -382,6 +400,10 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
         Ok(()) => eprintln!("[scriva] injected {n} chars"),
         Err(_) => eprintln!("[scriva] injection failed unexpectedly"),
     }
+
+    // 8. Stamp completion so the idle-eviction clock counts from the end of a
+    //    long transcription, not from when the user pressed the hotkey.
+    *app.state::<AppState>().last_local_use.lock().unwrap() = Instant::now();
     Ok(())
 }
 
@@ -439,6 +461,33 @@ pub fn run() {
             // Warm any selected on-device models in the background so the
             // first dictation after launch skips the model-load wait.
             warm_local_models(app.handle());
+
+            // Idle eviction for local models: once no dictation has happened
+            // for LOCAL_IDLE_EVICT_SECS, drop the cached models to free RAM.
+            // The unloads are idempotent no-ops when nothing is cached, so no
+            // loaded-state bookkeeping is needed; in-flight inference is safe
+            // because adapters clone the Arc out of the cache before running.
+            // The press-time re-warm above makes eviction nearly free for the
+            // user. (First interval tick fires immediately — harmless: the
+            // last-use stamp is fresh at startup.)
+            let evict_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut tick =
+                    tokio::time::interval(std::time::Duration::from_secs(60));
+                loop {
+                    tick.tick().await;
+                    let idle = evict_handle
+                        .state::<AppState>()
+                        .last_local_use
+                        .lock()
+                        .unwrap()
+                        .elapsed();
+                    if idle.as_secs() > LOCAL_IDLE_EVICT_SECS {
+                        providers::unload_local_transcriber();
+                        providers::unload_local_cleaner();
+                    }
+                }
+            });
 
             // Show the Settings window on manual launches (a launched menu-bar
             // app that shows nothing reads as broken); login launches carry the
