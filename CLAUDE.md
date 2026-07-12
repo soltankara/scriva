@@ -143,6 +143,19 @@ cargo check            # fast compile gate (repo root; covers core + shell,
 cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off)
 ```
 
+## Git workflow
+
+`main` is protected — direct pushes are rejected. Every change, no matter how small:
+
+1. `git switch main && git pull`, then `git switch -c <topic-branch>`
+2. Run `cargo fmt` and sweep AppleDouble junk (`find . -name '._*' -delete`)
+   before committing; push with `git push -u origin <topic-branch>`
+3. Open a PR with a clear description of what changed and why:
+   `gh pr create --title "..." --body "..."`
+4. Wait for the `ci` check to pass, then squash-merge:
+   `gh pr merge --squash --delete-branch` (no approvals required — solo
+   maintainer self-merges)
+
 ## CI/CD
 
 - GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR to
@@ -150,8 +163,6 @@ cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off
   `cargo check -p scriva-core` → `cargo test -p scriva-core`. The Tauri shell
   is NOT built in CI (needs macOS + cmake + long C++ builds) — `cargo check`
   at the repo root remains a local pre-push gate.
-- `main` is protected: changes land via pull request with a green `ci` check
-  (no required approvals — solo maintainer self-merges). No direct pushes.
 - Run `cargo fmt` before committing — CI enforces it.
 - Release builds (sign/notarize/staple dmg) stay manual per the README.
 
