@@ -27,8 +27,7 @@ mod macos {
         unsafe {
             let key = CFString::wrap_under_get_rule(kAXTrustedCheckOptionPrompt);
             let value = CFBoolean::from(prompt);
-            let options =
-                CFDictionary::from_CFType_pairs(&[(key.as_CFType(), value.as_CFType())]);
+            let options = CFDictionary::from_CFType_pairs(&[(key.as_CFType(), value.as_CFType())]);
             AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef()) != 0
         }
     }

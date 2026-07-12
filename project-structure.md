@@ -18,6 +18,16 @@ scriva/
 ├── project-desc.md                  # SOURCE OF TRUTH: full product/design description
 ├── project-structure.md             # This file
 ├── LICENSE                          # MIT, Soltan Garayev
+├── CONTRIBUTING.md                  # Contributor guide: setup, adding a provider, PR checklist
+├── SECURITY.md                      # Private vulnerability reporting policy (GitHub Security tab)
+├── .github/
+│   ├── workflows/
+│   │   └── ci.yml                   # CI: fmt check + scriva-core check/test on ubuntu;
+│   │                                #   fails if AppleDouble ._* files are tracked
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.md            # Bug template (macOS/app version, provider, permissions)
+│   │   └── feature_request.md       # Feature template (points to roadmap + provider guide)
+│   └── PULL_REQUEST_TEMPLATE.md     # PR checklist (fmt, tests, structure map, no secrets)
 │
 ├── Cargo.toml                       # Workspace root: members + shared [workspace.dependencies]
 ├── Cargo.lock                       # Single workspace lockfile (tracked in git)

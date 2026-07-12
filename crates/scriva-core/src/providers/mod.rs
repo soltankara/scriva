@@ -192,10 +192,14 @@ pub fn make_transcriber(
 ) -> Result<Box<dyn Transcriber>, ProviderError> {
     match name {
         "groq" => Ok(Box::new(groq::Groq::new(key, model)?)),
-        "openai" => Ok(Box::new(openai_transcribe::OpenAiTranscribe::new(key, model)?)),
+        "openai" => Ok(Box::new(openai_transcribe::OpenAiTranscribe::new(
+            key, model,
+        )?)),
         // On-device: needs no API key (require_key deliberately not called).
         #[cfg(feature = "local-models")]
-        "local" => Ok(Box::new(local_whisper::LocalWhisper::new(models_dir, model)?)),
+        "local" => Ok(Box::new(local_whisper::LocalWhisper::new(
+            models_dir, model,
+        )?)),
         #[cfg(not(feature = "local-models"))]
         "local" => {
             let _ = models_dir;
@@ -225,7 +229,9 @@ pub fn make_cleaner(
         "gemini" => Ok(Some(Box::new(gemini::Gemini::new(key, model)?))),
         // On-device: needs no API key (require_key deliberately not called).
         #[cfg(feature = "local-models")]
-        "local" => Ok(Some(Box::new(local_llama::LocalLlama::new(models_dir, model)?))),
+        "local" => Ok(Some(Box::new(local_llama::LocalLlama::new(
+            models_dir, model,
+        )?))),
         #[cfg(not(feature = "local-models"))]
         "local" => {
             let _ = models_dir;

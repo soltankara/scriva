@@ -1,5 +1,8 @@
 # Scriva
 
+[![CI](https://github.com/soltankara/scriva/actions/workflows/ci.yml/badge.svg)](https://github.com/soltankara/scriva/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Open-source voice dictation for macOS. Your keys, your models, your data.**
 
 Hold a hotkey, speak, release — your words are transcribed and typed into
@@ -167,7 +170,9 @@ Typical daily dictation use costs pennies per month.
 - **M5:** Windows and Linux.
 
 Adding a new AI provider is designed to be trivial: one adapter file + one
-registry line (`crates/scriva-core/src/providers/`). PRs welcome.
+registry line (`crates/scriva-core/src/providers/`). PRs welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md), and report security issues privately per
+[SECURITY.md](SECURITY.md).
 
 ## License
 

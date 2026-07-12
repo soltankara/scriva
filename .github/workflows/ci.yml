@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # AppleDouble sidecars (._*) from the exFAT dev volume must never be
+      # tracked — they ship inside the app bundle and break tauri-build.
+      - name: Check for AppleDouble files
+        run: |
+          if git ls-files | grep -E '(^|/)\._'; then
+            echo "AppleDouble (._*) files are tracked — remove them." >&2
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        run: cargo fmt --check
+
+      # scriva-core has zero platform deps and its cmake-requiring
+      # `local-models` feature is off by default, so it builds and tests on
+      # Linux. The Tauri shell (src-tauri) needs macOS + cmake and long C++
+      # builds; add a macos-latest job with `brew install cmake` +
+      # `cargo check` at the workspace root if/when shell CI is wanted.
+      - name: Check scriva-core
+        run: cargo check -p scriva-core
+
+      - name: Test scriva-core
+        run: cargo test -p scriva-core

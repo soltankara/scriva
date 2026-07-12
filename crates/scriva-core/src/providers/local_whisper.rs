@@ -86,10 +86,9 @@ fn cached_or_load(path: &Path, label: &str) -> Result<Arc<WhisperContext>, Provi
     if !path.is_file() {
         return Err(not_downloaded(label));
     }
-    let ctx = WhisperContext::new_with_params(path, WhisperContextParameters::default())
-        .map_err(|_| {
-            ProviderError::Config(format!("{label} failed to load — try re-downloading it."))
-        })?;
+    let ctx = WhisperContext::new_with_params(path, WhisperContextParameters::default()).map_err(
+        |_| ProviderError::Config(format!("{label} failed to load — try re-downloading it.")),
+    )?;
     let ctx = Arc::new(ctx);
     *guard = Some((path.to_path_buf(), Arc::clone(&ctx)));
     Ok(ctx)
@@ -111,9 +110,7 @@ impl Transcriber for LocalWhisper {
 
             let ctx = cached_or_load(&path, label)?;
             let mut state = ctx.create_state().map_err(|_| {
-                ProviderError::Config(format!(
-                    "{label} failed to load — try re-downloading it."
-                ))
+                ProviderError::Config(format!("{label} failed to load — try re-downloading it."))
             })?;
 
             let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });

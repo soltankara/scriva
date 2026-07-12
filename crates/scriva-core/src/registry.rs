@@ -178,7 +178,10 @@ mod tests {
         assert_eq!(default_model(Layer::Transcription).id, "whisper-small");
         assert_eq!(default_model(Layer::Cleanup).id, "llama-3.2-3b");
         // `""` and whitespace both mean the default.
-        assert_eq!(resolve(Layer::Transcription, "").unwrap().id, "whisper-small");
+        assert_eq!(
+            resolve(Layer::Transcription, "").unwrap().id,
+            "whisper-small"
+        );
         assert_eq!(resolve(Layer::Cleanup, "  ").unwrap().id, "llama-3.2-3b");
     }
 

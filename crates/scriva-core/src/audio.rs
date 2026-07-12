@@ -142,9 +142,7 @@ mod tests {
     #[test]
     fn speech_like_clip_encodes_a_riff_wav() {
         // 1s of a loud tone → passes duration + RMS guards.
-        let samples: Vec<f32> = (0..48_000)
-            .map(|i| (i as f32 * 0.05).sin() * 0.6)
-            .collect();
+        let samples: Vec<f32> = (0..48_000).map(|i| (i as f32 * 0.05).sin() * 0.6).collect();
         let audio = RecordedAudio {
             samples,
             sample_rate: 48_000,
@@ -159,9 +157,7 @@ mod tests {
     fn wav_round_trips_back_to_f32() {
         // 1s tone already at 16 kHz mono → encode skips resampling, so the
         // decoded samples should match the originals up to i16 quantization.
-        let samples: Vec<f32> = (0..16_000)
-            .map(|i| (i as f32 * 0.05).sin() * 0.6)
-            .collect();
+        let samples: Vec<f32> = (0..16_000).map(|i| (i as f32 * 0.05).sin() * 0.6).collect();
         let audio = RecordedAudio {
             samples: samples.clone(),
             sample_rate: 16_000,
@@ -195,6 +191,9 @@ mod tests {
         // 44-byte canonical header + 2 bytes per mono i16 sample.
         let data_bytes = wav.len() - 44;
         let sample_count = data_bytes / 2;
-        assert!((15_000..=17_000).contains(&sample_count), "got {sample_count}");
+        assert!(
+            (15_000..=17_000).contains(&sample_count),
+            "got {sample_count}"
+        );
     }
 }

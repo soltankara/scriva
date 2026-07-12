@@ -69,7 +69,8 @@ pub fn install() {
             let _: () = msg_send![menu, setMinimumWidth: MIN_WIDTH];
         });
 
-        let center_cls = AnyClass::get(c"NSNotificationCenter").expect("NSNotificationCenter class");
+        let center_cls =
+            AnyClass::get(c"NSNotificationCenter").expect("NSNotificationCenter class");
         let center: *mut AnyObject = msg_send![center_cls, defaultCenter];
         let nil: *mut AnyObject = std::ptr::null_mut();
         let observer: *mut AnyObject = msg_send![

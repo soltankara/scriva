@@ -67,9 +67,7 @@ fn backend() -> Result<&'static LlamaBackend, ProviderError> {
             Err(_) => None,
         })
         .as_ref()
-        .ok_or_else(|| {
-            ProviderError::Config("Local cleanup engine failed to start.".to_string())
-        })
+        .ok_or_else(|| ProviderError::Config("Local cleanup engine failed to start.".to_string()))
 }
 
 /// On-device llama.cpp cleaner for one curated registry model.
@@ -129,8 +127,8 @@ fn cached_or_load(path: &Path, label: &str) -> Result<Arc<LlamaModel>, ProviderE
     if !path.is_file() {
         return Err(not_downloaded(label));
     }
-    let model = LlamaModel::load_from_file(backend, path, &LlamaModelParams::default())
-        .map_err(|_| {
+    let model =
+        LlamaModel::load_from_file(backend, path, &LlamaModelParams::default()).map_err(|_| {
             ProviderError::Config(format!("{label} failed to load — try re-downloading it."))
         })?;
     let model = Arc::new(model);
@@ -202,13 +200,11 @@ fn run_cleanup(path: &Path, label: &'static str, raw: &str) -> Result<String, Pr
         .with_n_batch(n_ctx)
         .with_n_threads(threads)
         .with_n_threads_batch(threads);
-    let mut ctx = model
-        .new_context(backend()?, ctx_params)
-        .map_err(|_| {
-            ProviderError::Config(format!(
-                "{label} couldn't start — it may need more memory than is available."
-            ))
-        })?;
+    let mut ctx = model.new_context(backend()?, ctx_params).map_err(|_| {
+        ProviderError::Config(format!(
+            "{label} couldn't start — it may need more memory than is available."
+        ))
+    })?;
 
     // Feed the whole prompt in one batch; logits only for the last position.
     let mut batch = LlamaBatch::new(tokens.len(), 1);

@@ -90,7 +90,8 @@ fn raise_above_fullscreen<R: Runtime>(window: &tauri::WebviewWindow<R>) {
         unsafe {
             let _: () = msg_send![ns_window, setLevel: NS_STATUS_WINDOW_LEVEL];
             let behavior: usize = msg_send![ns_window, collectionBehavior];
-            let _: () = msg_send![ns_window, setCollectionBehavior: behavior | NS_FULLSCREEN_AUXILIARY];
+            let _: () =
+                msg_send![ns_window, setCollectionBehavior: behavior | NS_FULLSCREEN_AUXILIARY];
         }
     });
 }

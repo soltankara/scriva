@@ -472,8 +472,7 @@ pub fn run() {
             // last-use stamp is fresh at startup.)
             let evict_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let mut tick =
-                    tokio::time::interval(std::time::Duration::from_secs(60));
+                let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
                 loop {
                     tick.tick().await;
                     let idle = evict_handle

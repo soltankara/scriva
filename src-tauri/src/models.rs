@@ -166,7 +166,13 @@ pub fn download_model(
             }
             Err(msg) => {
                 eprintln!("[scriva] model download ended: {id} — {msg}");
-                emit_progress(&app, &id, progress.pct.load(Ordering::Relaxed), false, Some(&msg));
+                emit_progress(
+                    &app,
+                    &id,
+                    progress.pct.load(Ordering::Relaxed),
+                    false,
+                    Some(&msg),
+                );
             }
         }
     });
@@ -218,7 +224,9 @@ async fn fetch_model(
             Err(_) => {
                 drop(file);
                 let _ = tokio::fs::remove_file(&part).await;
-                return Err("Download interrupted — check your connection and try again.".to_string());
+                return Err(
+                    "Download interrupted — check your connection and try again.".to_string(),
+                );
             }
         };
         if file.write_all(&chunk).await.is_err() {
@@ -293,7 +301,9 @@ pub fn delete_model(
 /// quit/crash). Called once from setup(); all errors ignored.
 pub fn sweep_stale_parts<R: Runtime>(app: &AppHandle<R>) {
     let Ok(dir) = models_dir(app) else { return };
-    let Ok(entries) = std::fs::read_dir(&dir) else { return };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) == Some("part") {

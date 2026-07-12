@@ -143,6 +143,18 @@ cargo check            # fast compile gate (repo root; covers core + shell,
 cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off)
 ```
 
+## CI/CD
+
+- GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR to
+  `main`, on ubuntu: tracked-`._*` guard → `cargo fmt --check` →
+  `cargo check -p scriva-core` → `cargo test -p scriva-core`. The Tauri shell
+  is NOT built in CI (needs macOS + cmake + long C++ builds) — `cargo check`
+  at the repo root remains a local pre-push gate.
+- `main` is protected: changes land via pull request with a green `ci` check
+  (no required approvals — solo maintainer self-merges). No direct pushes.
+- Run `cargo fmt` before committing — CI enforces it.
+- Release builds (sign/notarize/staple dmg) stay manual per the README.
+
 ## macOS gotchas
 
 - **Accessibility permission is the #1 failure mode**: without it,
