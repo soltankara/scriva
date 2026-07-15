@@ -2,7 +2,9 @@
 <!-- Recording/pipeline indicator overlay. Shown by the Rust shell (window
      label "overlay") from hotkey press until the dictated text has been
      injected. Stages: "recording" (animated waveform) → "transcribing" →
-     "polishing" (status text), driven by overlay.rs via window.eval of
+     "polishing" (status text) → "copied" (terminal "Copied — ⌘V to paste",
+     shown when injection is diverted to the clipboard), driven by overlay.rs
+     via window.eval of
      __scrivaStage() — no Tauri API usage here, so no capability grants.
      Click-through + non-focusable is enforced on the Rust side. Always
      dark — it floats over arbitrary content, not over our UI. -->
@@ -79,9 +81,13 @@
     50%      { opacity: .45; }
   }
   body[data-stage="transcribing"] .wave,
-  body[data-stage="polishing"] .wave { display: none; }
+  body[data-stage="polishing"] .wave,
+  body[data-stage="copied"] .wave { display: none; }
   body[data-stage="transcribing"] .stage,
-  body[data-stage="polishing"] .stage { display: inline; }
+  body[data-stage="polishing"] .stage,
+  body[data-stage="copied"] .stage { display: inline; }
+  /* "copied" is a terminal state — hold it steady, don't pulse. */
+  body[data-stage="copied"] .stage { animation: none; }
 </style>
 </head>
 <body>
@@ -96,7 +102,11 @@
   // Called by the Rust shell (overlay.rs set_stage) via window.eval.
   window.__scrivaStage = function (s) {
     document.body.setAttribute('data-stage', s);
-    var text = { transcribing: 'Transcribing', polishing: 'Polishing' }[s];
+    var text = {
+      transcribing: 'Transcribing',
+      polishing: 'Polishing',
+      copied: 'Copied — ⌘V to paste',
+    }[s];
     document.getElementById('stage').textContent = text || '';
   };
 </script>

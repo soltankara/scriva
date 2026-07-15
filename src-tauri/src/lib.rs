@@ -1,6 +1,8 @@
 mod audio;
+mod clipboard;
 mod commands;
 mod config;
+mod focus;
 mod inject;
 mod menu_width;
 mod models;
@@ -9,7 +11,7 @@ pub(crate) use scriva_core::providers;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, RwLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tauri::{
     menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder},
@@ -26,6 +28,19 @@ use config::Settings;
 /// press-time re-warm in the hotkey handler, which hides a post-eviction
 /// reload behind the time the user spends speaking.
 const LOCAL_IDLE_EVICT_SECS: u64 = 10 * 60;
+
+/// How long the terminal "Copied — ⌘V to paste" pill lingers after an
+/// injection is diverted to the clipboard. `run_pipeline` sleeps for this before
+/// returning, so `pipeline_busy` stays true throughout and hotkey presses are
+/// dropped — no stale-hide race with a new recording.
+const COPIED_LINGER: Duration = Duration::from_secs(2);
+
+/// Tray menu items we mutate after build (currently just the "Copy Last
+/// Transcription" item, which starts greyed and enables after the first
+/// dictation). Managed separately from the menu so `run_pipeline` can flip it.
+pub struct TrayItems {
+    pub copy_last: tauri::menu::MenuItem<tauri::Wry>,
+}
 
 /// Managed application state.
 pub struct AppState {
@@ -49,6 +64,10 @@ pub struct AppState {
     /// eviction loop in setup() frees cached local models once this is older
     /// than `LOCAL_IDLE_EVICT_SECS`.
     pub last_local_use: Mutex<Instant>,
+    /// Final (post-cleanup) text of the most recent dictation, for the tray's
+    /// "Copy Last Transcription" recovery item. **Memory only — never persisted
+    /// or logged** (invariant #5). Empty means no dictation has happened yet.
+    pub last_transcription: Mutex<String>,
 }
 
 impl AppState {
@@ -60,6 +79,7 @@ impl AppState {
             hotkey: Mutex::new(None),
             enabled: AtomicBool::new(true),
             last_local_use: Mutex::new(Instant::now()),
+            last_transcription: Mutex::new(String::new()),
         }
     }
 }
@@ -387,6 +407,14 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
         }
     }
 
+    // 5.5 Remember the final text for tray recovery and light up the tray's
+    //     "Copy Last Transcription" item, regardless of what the injection path
+    //     does next. Must precede the inject closure, which moves `text`.
+    *app.state::<AppState>().last_transcription.lock().unwrap() = text.clone();
+    if let Some(items) = app.try_state::<TrayItems>() {
+        let _ = items.copy_last.set_enabled(true); // main-thread-proxied by tauri
+    }
+
     // 6. Accessibility gate — without it CGEvent injection silently no-ops
     //    (transcription works but no text appears). Warn on stderr for
     //    terminal-only users, then still attempt injection.
@@ -394,11 +422,28 @@ async fn run_pipeline(app: &AppHandle, handle: RecorderHandle) -> Result<(), Str
         eprintln!("[scriva] accessibility not granted — text will not be typed");
     }
 
-    // 7. Inject (blocking CGEvent posting off-runtime).
+    // 6.5 Editability probe off-runtime (synchronous AX IPC, capped at 250 ms).
+    //     Fail OPEN: only a clear NotEditable diverts to the clipboard; any
+    //     ambiguity or error injects exactly as before.
+    let check = tauri::async_runtime::spawn_blocking(focus::focused_element_accepts_text)
+        .await
+        .unwrap_or(focus::FocusCheck::Unknown);
+
     let n = text.chars().count();
-    match tauri::async_runtime::spawn_blocking(move || inject::type_text(&text)).await {
-        Ok(()) => eprintln!("[scriva] injected {n} chars"),
-        Err(_) => eprintln!("[scriva] injection failed unexpectedly"),
+    if matches!(check, focus::FocusCheck::NotEditable) {
+        // 7-alt. Divert: injecting here would fire the focused app's keyboard
+        //        shortcuts instead of entering text. Copy + show the terminal
+        //        pill; the caller hides the overlay when we return.
+        clipboard::write_text(app, &text);
+        eprintln!("[scriva] focused element not editable — copied {n} chars to clipboard");
+        overlay::set_stage(app, "copied");
+        tokio::time::sleep(COPIED_LINGER).await;
+    } else {
+        // 7. Inject (blocking CGEvent posting off-runtime).
+        match tauri::async_runtime::spawn_blocking(move || inject::type_text(&text)).await {
+            Ok(()) => eprintln!("[scriva] injected {n} chars"),
+            Err(_) => eprintln!("[scriva] injection failed unexpectedly"),
+        }
     }
 
     // 8. Stamp completion so the idle-eviction clock counts from the end of a
@@ -521,15 +566,25 @@ pub fn run() {
             let enabled_item = CheckMenuItemBuilder::with_id("enabled", "Enabled")
                 .checked(true)
                 .build(app)?;
+            // Recovery item: greyed until the first dictation lands, then always
+            // available to re-copy the last transcript (e.g. after a divert or a
+            // fumbled paste). Enabled by run_pipeline via the managed TrayItems.
+            let copy_last = MenuItemBuilder::with_id("copy_last", "Copy Last Transcription")
+                .enabled(false)
+                .build(app)?;
             let settings_item = MenuItemBuilder::with_id("settings", "Settings").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let menu = MenuBuilder::new(app)
                 .item(&enabled_item)
                 .separator()
+                .item(&copy_last)
                 .item(&settings_item)
                 .item(&quit)
                 .build()?;
             let enabled_check = enabled_item.clone();
+            app.manage(TrayItems {
+                copy_last: copy_last.clone(),
+            });
 
             // Widen the native tray NSMenu panel so labels don't crowd its
             // rounded edge on macOS 26. Title padding (ASCII or NBSP) is trimmed
@@ -552,6 +607,19 @@ pub fn run() {
                         // The checkmark already reflects the post-click state.
                         let on = enabled_check.is_checked().unwrap_or(true);
                         set_enabled(app, on);
+                    }
+                    "copy_last" => {
+                        // Re-copy the most recent transcript. Memory-only; empty
+                        // until the first dictation (the item is greyed then).
+                        let text = app
+                            .state::<AppState>()
+                            .last_transcription
+                            .lock()
+                            .unwrap()
+                            .clone();
+                        if !text.is_empty() {
+                            clipboard::write_text(app, &text);
+                        }
                     }
                     "settings" => {
                         if let Some(window) = app.get_webview_window("main") {
