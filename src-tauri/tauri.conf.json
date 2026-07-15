@@ -21,9 +21,18 @@
       }
     ]
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/soltankara/scriva/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUzMDhGODRBRTJFRTMwMUIKUldRYk1PN2lTdmdJVTVXbjc5Z2YrNkFVbWFKSURBenZRRVZ2SWVUYkFOQytvSGNybndHZHpVVWcK"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": true,
     "macOS": {
       "minimumSystemVersion": "12.0",
       "entitlements": "Entitlements.plist"

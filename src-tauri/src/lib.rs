@@ -7,6 +7,7 @@ mod inject;
 mod menu_width;
 mod models;
 mod overlay;
+mod updater;
 pub(crate) use scriva_core::providers;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -468,6 +469,11 @@ pub fn run() {
         )
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        // Manual-only updater + native dialogs for its ask/message prompts.
+        // The updater NEVER runs automatically — the sole trigger is the tray's
+        // "Check for Updates…" item (see updater::check_for_updates).
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         // LaunchAgent (not AppleScript: that variant drives System Events and
         // triggers an Automation TCC prompt). The agent plist is the source of
         // truth for the login-item state — no mirror field in Settings. The
@@ -572,12 +578,16 @@ pub fn run() {
             let copy_last = MenuItemBuilder::with_id("copy_last", "Copy Last Transcription")
                 .enabled(false)
                 .build(app)?;
+            // Manual-only update check: contacts the network solely on click.
+            let check_updates =
+                MenuItemBuilder::with_id("check_updates", "Check for Updates…").build(app)?;
             let settings_item = MenuItemBuilder::with_id("settings", "Settings").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
             let menu = MenuBuilder::new(app)
                 .item(&enabled_item)
                 .separator()
                 .item(&copy_last)
+                .item(&check_updates)
                 .item(&settings_item)
                 .item(&quit)
                 .build()?;
@@ -620,6 +630,10 @@ pub fn run() {
                         if !text.is_empty() {
                             clipboard::write_text(app, &text);
                         }
+                    }
+                    "check_updates" => {
+                        // The only network call not driven by a dictation.
+                        updater::check_for_updates(app);
                     }
                     "settings" => {
                         if let Some(window) = app.get_webview_window("main") {
