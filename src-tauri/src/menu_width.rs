@@ -9,8 +9,9 @@
 //! So we reach the `NSMenu` at runtime: register an `NSNotificationCenter`
 //! observer for `NSMenuDidBeginTrackingNotification`. The notification's `object`
 //! is the menu that began tracking; when it's our tray menu (Enabled ·
-//! separator · Settings · Quit — separators count toward `numberOfItems`) we
-//! set its minimum width. Registration happens once during setup on the main
+//! separator · Copy Last Transcription · Settings · Quit — separators count
+//! toward `numberOfItems`) we set its minimum width. Registration happens once
+//! during setup on the main
 //! thread; the observer and its block are intentionally leaked for the app's
 //! lifetime. **Keep the guard below in sync with the tray menu in `lib.rs`.**
 
@@ -46,11 +47,12 @@ pub fn install() {
             if menu.is_null() {
                 return;
             }
-            // Guard: only our tray menu — exactly four items (Enabled, separator,
-            // Settings, Quit) with the first titled "Enabled". Prevents touching
-            // any other NSMenu in the process.
+            // Guard: only our tray menu — exactly five items (Enabled,
+            // separator, Copy Last Transcription, Settings, Quit) with the first
+            // titled "Enabled". Prevents touching any other NSMenu in the
+            // process. Keep in sync with the menu built in lib.rs.
             let count: isize = msg_send![menu, numberOfItems];
-            if count != 4 {
+            if count != 5 {
                 return;
             }
             let item0: *mut AnyObject = msg_send![menu, itemAtIndex: 0isize];

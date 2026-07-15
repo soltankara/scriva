@@ -121,7 +121,8 @@ scriva/
 │   │                                #   Dev watcher does NOT watch this — restart dev to see edits.
 │   └── overlay.html                 # Recording/pipeline pill (window label "overlay"): shown
 │                                    #   from hotkey press until text is injected; waveform →
-│                                    #   "Transcribing…" → "Polishing…" stages driven by
+│                                    #   "Transcribing…" → "Polishing…" (+ terminal "Copied —
+│                                    #   ⌘V to paste" on clipboard divert) stages driven by
 │                                    #   overlay.rs via window.eval (no Tauri API, so no
 │                                    #   capability grant). Shown/hidden + positioned by
 │                                    #   src-tauri/src/overlay.rs.
@@ -153,12 +154,16 @@ scriva/
     └── src/
         ├── main.rs                  # Binary entry point; calls scriva_lib::run()
         ├── lib.rs                   # App wiring: AppState (incl. session-only `enabled`
-        │                            #   toggle), global hotkey registration + press/release
-        │                            #   handler, tray creation (Enabled check item · Settings ·
-        │                            #   Quit) + glyph swap (idle/rec/dimmed), set_enabled
+        │                            #   toggle + memory-only last_transcription), global hotkey
+        │                            #   registration + press/release
+        │                            #   handler, tray creation (Enabled check item · Copy Last
+        │                            #   Transcription · Settings · Quit) + glyph swap
+        │                            #   (idle/rec/dimmed), set_enabled
         │                            #   (unregisters hotkey + aborts capture when off),
         │                            #   autostart plugin (LaunchAgent), run_pipeline
-        │                            #   (capture→encode→transcribe→clean→inject),
+        │                            #   (capture→encode→transcribe→clean→inject, with a
+        │                            #   pre-inject AX editability probe that diverts to the
+        │                            #   clipboard when focus clearly can't take text),
         │                            #   warm_local_models (fire-and-forget preload of selected
         │                            #   on-device models; setup() + after save_settings),
         │                            #   builder/setup, first-run window show (when not
@@ -174,7 +179,7 @@ scriva/
         ├── menu_width.rs            # macOS-only: widens the tray NSMenu panel. Tauri/muda
         │                            #   expose no NSMenu handle, so it observes
         │                            #   NSMenuDidBeginTrackingNotification (objc2 + block2) and
-        │                            #   calls setMinimumWidth: on our 4-item tray menu (guard
+        │                            #   calls setMinimumWidth: on our 5-item tray menu (guard
         │                            #   must stay in sync with the menu built in lib.rs).
         ├── models.rs                # Local-model download manager (M3): models_dir() helper
         │                            #   (<app data>/models — single source of truth, used by
@@ -197,8 +202,16 @@ scriva/
         │                            #   !Send stream, ships samples over mpsc. Also mic TCC
         │                            #   status/request (AVFoundation via objc2). Re-exports
         │                            #   the processing fns from scriva_core::audio.
-        └── inject.rs                # macOS text injection: CGEvent Unicode path (chunked)
-                                     #   + AXIsProcessTrusted accessibility check/prompt
+        ├── inject.rs                # macOS text injection: CGEvent Unicode path (chunked)
+        │                            #   + AXIsProcessTrusted accessibility check/prompt
+        ├── focus.rs                 # Pre-injection AX probe: is the system-wide focused UI
+        │                            #   element editable? Raw AX bindings (250 ms messaging
+        │                            #   timeout), conservative classify() decision tree —
+        │                            #   diverts to clipboard ONLY on clearly-not-editable;
+        │                            #   ambiguous/error fails open (inject as usual).
+        └── clipboard.rs             # Write-only NSPasteboard bridge (objc2 msg_send!); used
+                                     #   by the pipeline's clipboard divert and the tray's
+                                     #   "Copy Last Transcription" item.
 ```
 
 ## Not in git / generated

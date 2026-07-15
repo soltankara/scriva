@@ -20,8 +20,10 @@ use tauri::{
 pub const LABEL: &str = "overlay";
 
 /// Logical size of the overlay window. The pill inside is ~34px tall; the extra
-/// height leaves room for the pulse glow to bleed past the pill edge.
-const WIDTH: f64 = 160.0;
+/// height leaves room for the pulse glow to bleed past the pill edge. WIDTH is
+/// sized for the widest stage label ("Copied — ⌘V to paste"); the pill is
+/// content-sized and centered, so narrower stages look identical.
+const WIDTH: f64 = 220.0;
 const HEIGHT: f64 = 56.0;
 
 /// Logical gap between the bottom edge of the display and the overlay.
@@ -125,12 +127,17 @@ pub fn hide<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// Switch the pill's pipeline stage: `"recording"` (animated waveform),
-/// `"transcribing"` or `"polishing"` (status text). Pushed into the overlay
-/// via `eval` so overlay.html stays free of Tauri API usage and needs no
-/// capability grants. The stage value never contains user input — only these
-/// three static literals — so the eval string needs no escaping.
+/// `"transcribing"` or `"polishing"` (pulsing status text), or `"copied"` (the
+/// terminal "Copied — ⌘V to paste" state shown when injection is diverted to
+/// the clipboard). Pushed into the overlay via `eval` so overlay.html stays
+/// free of Tauri API usage and needs no capability grants. The stage value
+/// never contains user input — only these static literals — so the eval string
+/// needs no escaping.
 pub fn set_stage<R: Runtime>(app: &AppHandle<R>, stage: &str) {
-    debug_assert!(matches!(stage, "recording" | "transcribing" | "polishing"));
+    debug_assert!(matches!(
+        stage,
+        "recording" | "transcribing" | "polishing" | "copied"
+    ));
     if let Some(window) = app.get_webview_window(LABEL) {
         let _ = window.eval(&format!(
             "window.__scrivaStage&&window.__scrivaStage('{stage}')"

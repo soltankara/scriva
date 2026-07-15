@@ -31,8 +31,14 @@ forward unless explicitly asked.
 hold hotkey → record mic (cpal) → release
   → Transcriber (audio → raw text)     required   Groq whisper-large-v3 (default) | OpenAI whisper-1 | Local whisper.cpp
   → Cleaner     (raw → polished text)  optional   none (default) | Claude Haiku | OpenAI gpt-4o-mini | Gemini 2.0 Flash | Local llama.cpp
-  → inject text into focused app (CGEvent Unicode path, chunked)
+  → inject text into focused app (CGEvent Unicode path, chunked) — unless the
+    AX probe (src-tauri/src/focus.rs) says the focused element is clearly not
+    editable: then copy to clipboard + show a "Copied — ⌘V to paste" pill instead
 ```
+
+The final text of the most recent dictation is kept in `AppState`
+(memory only, never persisted or logged) and retrievable via the tray's
+"Copy Last Transcription" item.
 
 Per-provider model choice: `Settings.transcription_model` / `cleanup_model`
 pin a model ID; `""` (default) means the adapter's built-in `const MODEL`, so
@@ -172,6 +178,15 @@ cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off
   transcription works but no text is typed (silent failure). The UI surfaces
   this with a warning + deep link. In dev, macOS may require re-granting after
   rebuilds (binary signature changes).
+- **AX focus probe must stay fail-open** (`src-tauri/src/focus.rs`): each AX
+  query is sync IPC to the focused app with a 6 s default timeout — we set
+  `AXUIElementSetMessagingTimeout(0.25)` on the system-wide element so a
+  beachballed app can't stall the pipeline. Chromium (Chrome/Electron) builds
+  its AX tree lazily: until an AX client touches it, a focused web text field
+  reports as opaque `AXWebArea`/`AXGroup` — those roles must NEVER divert to
+  the clipboard (our own query enables Chromium AX, so second and later
+  dictations see real roles). Divert only on an explicit non-text role AND
+  `AXValue` confirmed not settable.
 - Mic prompt requires `NSMicrophoneUsageDescription` in `src-tauri/Info.plist`.
 - **Closed lid = silent mic**: Apple Silicon MacBooks hardware-disconnect the
   built-in mic when the lid is closed — capture "works" but delivers all-zero
@@ -192,7 +207,8 @@ cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off
 - The recording overlay (label `overlay`, `src/overlay.html`, plumbing in
   `src-tauri/src/overlay.rs`) must **never take focus or receive clicks** —
   injection targets the frontmost app. It stays visible through the whole
-  pipeline (waveform while recording, then "Transcribing…"/"Polishing…" text);
+  pipeline (waveform while recording, then "Transcribing…"/"Polishing…" text,
+  and a steady "Copied — ⌘V to paste" for ~2 s when the clipboard divert fires);
   stages are pushed from Rust via `overlay::set_stage` → `window.eval`, so the
   overlay webview needs no Tauri API or capability grants. It is built `focused(false)` +
   `set_ignore_cursor_events(true)`; never call `set_focus()` on it. Its
