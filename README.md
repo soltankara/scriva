@@ -102,11 +102,19 @@ committed, debug builds only).
 cd <repo root>
 find src src-tauri -name '._*' -delete   # sweep AppleDouble junk (exFAT)
 touch src-tauri/src/lib.rs               # force re-embed of src/ web assets
+
+# Sign the updater artifacts. Empty password; key lives OUTSIDE the repo.
+export TAURI_SIGNING_PRIVATE_KEY="$(cat /Users/soltan/.tauri/scriva-updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+
 npm run tauri build
 ```
 
 This produces `Scriva.app` and a `.dmg` under the cargo target dir
-(`release/bundle/{macos,dmg}/`). Notes:
+(`release/bundle/{macos,dmg}/`). Because `bundle.createUpdaterArtifacts` is on,
+it *also* emits the in-app updater payload next to the `.app`
+(`release/bundle/macos/`): a `Scriva.app.tar.gz` and its detached signature
+`Scriva.app.tar.gz.sig`. Notes:
 
 - **Release builds ignore `.env`** — the dev key override is compiled out.
   Enter API keys in the Settings window.
@@ -135,6 +143,54 @@ xcrun notarytool submit <dmg> --keychain-profile scriva-notary --wait
 xcrun stapler staple <dmg>
 spctl -a -vv -t install <dmg>   # expect: accepted, Notarized Developer ID
 ```
+
+### In-app updater (manual "Check for Updates…")
+
+The tray's **Check for Updates…** item contacts GitHub Releases only when the
+user clicks it (nothing runs automatically). For it to find an update, each
+release must publish the updater payload *and* a `latest.json` manifest that
+the app fetches from `releases/latest/download/latest.json`.
+
+The signing keypair lives outside the repo (never commit it):
+
+- Private key: `/Users/soltan/.tauri/scriva-updater.key` (empty password) —
+  **back this up.** Losing it means future builds can't be signed and users
+  must re-download manually.
+- Public key: already baked into `src-tauri/tauri.conf.json`
+  (`plugins.updater.pubkey`). Only rotate it in lockstep with the private key.
+
+Per release (assuming `TAURI_SIGNING_PRIVATE_KEY*` were set at build time, so
+the `.sig` exists):
+
+1. Bump `version` in `src-tauri/tauri.conf.json` before building.
+2. Upload these to the GitHub release, alongside the notarized `.dmg`:
+   - `Scriva.app.tar.gz` — rename to a versioned asset, e.g.
+     `Scriva_<version>_aarch64.app.tar.gz`.
+   - `Scriva.app.tar.gz.sig` — the detached signature.
+   - `latest.json` — the manifest below.
+3. Hand-write (or generate) `latest.json`. `signature` is the **entire
+   contents** of the `.sig` file; `url` is the versioned `.app.tar.gz` release
+   asset URL:
+
+```json
+{
+  "version": "0.2.0",
+  "pub_date": "2026-07-16T00:00:00Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "<paste the full contents of Scriva.app.tar.gz.sig>",
+      "url": "https://github.com/soltankara/scriva/releases/download/v0.2.0/Scriva_0.2.0_aarch64.app.tar.gz"
+    }
+  }
+}
+```
+
+Today's builds are Apple-Silicon only (`darwin-aarch64`). If a universal /
+Intel build ever ships, add a sibling `darwin-x86_64` entry with its own
+signature + url. The updater downloads the `.app.tar.gz`, verifies the
+signature against the baked-in pubkey, installs, and relaunches — an unsigned
+or mismatched artifact is rejected, and a plain dev build (no signature) simply
+surfaces the calm "Couldn't check for updates" dialog rather than updating.
 
 ## Costs
 

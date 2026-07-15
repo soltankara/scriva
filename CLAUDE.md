@@ -170,7 +170,14 @@ cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off
   is NOT built in CI (needs macOS + cmake + long C++ builds) — `cargo check`
   at the repo root remains a local pre-push gate.
 - Run `cargo fmt` before committing — CI enforces it.
-- Release builds (sign/notarize/staple dmg) stay manual per the README.
+- Release builds (sign/notarize/staple dmg) stay manual per the README. Since
+  the manual updater landed, `tauri build` also emits updater artifacts
+  (`.app.tar.gz` + `.sig`, signed with the minisign key at
+  `~/.tauri/scriva-updater.key` — machine-local, NEVER in git, back it up);
+  each release must upload those plus a `latest.json` manifest (see README).
+- **The update check is manual-only by product decision** ("nothing phones
+  home"): the tray's "Check for Updates…" click is the ONLY trigger. Never add
+  a startup or scheduled update check.
 
 ## macOS gotchas
 

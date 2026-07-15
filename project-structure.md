@@ -157,7 +157,8 @@ scriva/
         │                            #   toggle + memory-only last_transcription), global hotkey
         │                            #   registration + press/release
         │                            #   handler, tray creation (Enabled check item · Copy Last
-        │                            #   Transcription · Settings · Quit) + glyph swap
+        │                            #   Transcription · Check for Updates… · Settings · Quit)
+        │                            #   + glyph swap
         │                            #   (idle/rec/dimmed), set_enabled
         │                            #   (unregisters hotkey + aborts capture when off),
         │                            #   autostart plugin (LaunchAgent), run_pipeline
@@ -179,7 +180,7 @@ scriva/
         ├── menu_width.rs            # macOS-only: widens the tray NSMenu panel. Tauri/muda
         │                            #   expose no NSMenu handle, so it observes
         │                            #   NSMenuDidBeginTrackingNotification (objc2 + block2) and
-        │                            #   calls setMinimumWidth: on our 5-item tray menu (guard
+        │                            #   calls setMinimumWidth: on our 6-item tray menu (guard
         │                            #   must stay in sync with the menu built in lib.rs).
         ├── models.rs                # Local-model download manager (M3): models_dir() helper
         │                            #   (<app data>/models — single source of truth, used by
@@ -209,9 +210,14 @@ scriva/
         │                            #   timeout), conservative classify() decision tree —
         │                            #   diverts to clipboard ONLY on clearly-not-editable;
         │                            #   ambiguous/error fails open (inject as usual).
-        └── clipboard.rs             # Write-only NSPasteboard bridge (objc2 msg_send!); used
-                                     #   by the pipeline's clipboard divert and the tray's
-                                     #   "Copy Last Transcription" item.
+        ├── clipboard.rs             # Write-only NSPasteboard bridge (objc2 msg_send!); used
+        │                            #   by the pipeline's clipboard divert and the tray's
+        │                            #   "Copy Last Transcription" item.
+        └── updater.rs               # Manual-only update check (tray "Check for Updates…"):
+                                     #   tauri-plugin-updater against latest.json on GitHub
+                                     #   Releases, result via native dialogs. NEVER runs
+                                     #   automatically — the menu click is the only trigger
+                                     #   ("nothing phones home").
 ```
 
 ## Not in git / generated
