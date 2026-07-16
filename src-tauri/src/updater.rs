@@ -31,6 +31,27 @@ fn current_version(app: &AppHandle) -> String {
     app.package_info().version.to_string()
 }
 
+/// Prettify a version for user-facing copy ONLY — never for comparison.
+///
+/// Scriva ships calendar versions ("20260716.0.0", second same-day release
+/// "20260716.1.0") through a semver field. When the first segment is exactly
+/// 8 digits (the YYYYMMDD date), trim trailing ".0" segments while more than
+/// one remains, so users see "20260716" / "20260716.1" instead of the padded
+/// internal form. Anything that doesn't look like calver passes through
+/// untouched ("0.1.0" stays "0.1.0").
+fn display_version(v: &str) -> String {
+    let mut segs: Vec<&str> = v.split('.').collect();
+    let is_calver = segs
+        .first()
+        .is_some_and(|s| s.len() == 8 && s.bytes().all(|b| b.is_ascii_digit()));
+    if is_calver {
+        while segs.len() > 1 && *segs.last().unwrap() == "0" {
+            segs.pop();
+        }
+    }
+    segs.join(".")
+}
+
 /// Entry point for the tray's "Check for Updates…" item. Returns immediately;
 /// the whole check runs off the menu-event thread on the async runtime.
 pub fn check_for_updates(app: &AppHandle) {
@@ -74,10 +95,14 @@ async fn run_check(app: &AppHandle) {
             let new_version = update.version.clone();
             eprintln!("[scriva] update available: {current} -> {new_version}");
 
+            // User-facing copy uses the prettified calver form.
+            let new_shown = display_version(&new_version);
+            let current_shown = display_version(&current);
+
             let install = app
                 .dialog()
                 .message(format!(
-                    "Scriva {new_version} is available — you have {current}.\n\n\
+                    "Scriva {new_shown} is available — you have {current_shown}.\n\n\
                      Install and relaunch now?"
                 ))
                 .title("Update Available")
@@ -116,7 +141,8 @@ async fn run_check(app: &AppHandle) {
             eprintln!("[scriva] up to date ({current})");
             app.dialog()
                 .message(format!(
-                    "You're up to date — Scriva {current} is the latest version."
+                    "You're up to date — Scriva {} is the latest version.",
+                    display_version(&current)
                 ))
                 .title("Up to Date")
                 .blocking_show();
@@ -136,4 +162,19 @@ fn couldnt_check(app: &AppHandle, detail: &str) {
         .message(format!("Couldn't check for updates: {detail}"))
         .title("Check for Updates")
         .blocking_show();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::display_version;
+
+    #[test]
+    fn trims_calver_trailing_zeros_but_leaves_others_alone() {
+        // Calver: trailing ".0" segments trimmed, but at least one kept.
+        assert_eq!(display_version("20260716.0.0"), "20260716");
+        assert_eq!(display_version("20260716.1.0"), "20260716.1");
+        assert_eq!(display_version("20260716.0"), "20260716");
+        // Non-calver (first segment isn't 8 digits) passes through unchanged.
+        assert_eq!(display_version("0.1.0"), "0.1.0");
+    }
 }
