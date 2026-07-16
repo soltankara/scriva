@@ -170,11 +170,21 @@ cargo test -p scriva-core   # core unit tests (no cmake needed: local-models off
   is NOT built in CI (needs macOS + cmake + long C++ builds) — `cargo check`
   at the repo root remains a local pre-push gate.
 - Run `cargo fmt` before committing — CI enforces it.
-- Release builds (sign/notarize/staple dmg) stay manual per the README. Since
-  the manual updater landed, `tauri build` also emits updater artifacts
-  (`.app.tar.gz` + `.sig`, signed with the minisign key at
-  `~/.tauri/scriva-updater.key` — machine-local, NEVER in git, back it up);
-  each release must upload those plus a `latest.json` manifest (see README).
+- **Releases are automated** (`.github/workflows/release.yml`, macos-latest):
+  every merge to `main` builds, signs, notarizes (.app AND .dmg — with an
+  spctl "Notarized Developer ID" gate), and publishes a GitHub release with
+  all five assets (versioned dmg, stable `Scriva-macOS.dmg`, updater
+  `.app.tar.gz` + `.sig`, `latest.json`). `[skip release]` in the PR title
+  skips it (NOT `[skip ci]` — that would skip tests too). Versioning is
+  calver: tag `v<yyyymmdd>[.N]`, internal semver `<yyyymmdd>.<N>.0`, computed
+  in-workflow from the UTC date + existing tags. The workflow NEVER commits to
+  protected `main` — checked-in `0.1.0` version strings are placeholders.
+  Manual re-run/backfill: Actions → Release → Run workflow (`dry_run` builds
+  everything but publishes nothing). Needs 7 repo secrets: `APPLE_CERTIFICATE`,
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
+  `APPLE_PASSWORD`, `APPLE_TEAM_ID`, `TAURI_SIGNING_PRIVATE_KEY` (minisign key
+  from `~/.tauri/scriva-updater.key` — machine-local, NEVER in git, back it
+  up; its password is hardcoded empty in the workflow).
 - **The update check is manual-only by product decision** ("nothing phones
   home"): the tray's "Check for Updates…" click is the ONLY trigger. Never add
   a startup or scheduled update check.

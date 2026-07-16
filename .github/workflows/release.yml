@@ -1,0 +1,227 @@
+name: Release
+
+# Every merge to main builds, signs, notarizes, and publishes a GitHub release
+# with all assets the landing page (Scriva-macOS.dmg) and the in-app updater
+# (latest.json) need. Versioning is calendar-based: public version = UTC date
+# (20260716), internal semver = 20260716.0.0, tag = v20260716; a second
+# release the same day is 20260716.1.0 / v20260716.1.
+#
+# Skips when the head commit message contains "[skip release]" (squash merges
+# put the PR title there — use it for doc-only changes). Never pushes commits
+# to main: the version is patched only in the runner workspace and recorded as
+# a tag, so the checked-in version strings stay 0.1.0 by design.
+#
+# Secrets (Settings → Secrets and variables → Actions): APPLE_CERTIFICATE
+# (base64 .p12), APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID,
+# APPLE_PASSWORD (app-specific), APPLE_TEAM_ID, TAURI_SIGNING_PRIVATE_KEY.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build + notarize + gate, but do NOT tag or publish (assets land in a workflow artifact instead)"
+        type: boolean
+        default: false
+
+# Queue runs; never cancel. Cancelling mid-publish could orphan a tag or ship
+# a release without latest.json. Queuing also serializes same-day tag
+# numbering: the next run's checkout sees the previous run's tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create tags + releases with the default GITHUB_TOKEN
+
+jobs:
+  release:
+    # Push events: honor [skip release] in the head commit (= squash-merge PR
+    # title). workflow_dispatch: always run (head_commit is null there).
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip release]')
+    runs-on: macos-latest # Apple Silicon since macos-14 -> darwin-aarch64
+    timeout-minutes: 90 # C++ engines ~15-25 min cold + two notarization waits
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags: needed to count same-day calver tags
+
+      - name: Compute calver version
+        id: ver
+        run: |
+          set -euo pipefail
+          DATE="$(date -u +%Y%m%d)"
+          # Count existing releases for this UTC date: v20260716, v20260716.1, …
+          N="$(git tag -l "v${DATE}" "v${DATE}.*" | wc -l | tr -d ' ')"
+          if [ "$N" -eq 0 ]; then
+            TAG="v${DATE}"
+            DISPLAY="${DATE}"
+          else
+            TAG="v${DATE}.${N}"
+            DISPLAY="${DATE}.${N}"
+          fi
+          SEMVER="${DATE}.${N}.0"
+          # Paranoia: the tag we are about to create must not exist yet.
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::tag ${TAG} already exists" >&2
+            exit 1
+          fi
+          {
+            echo "tag=${TAG}"
+            echo "semver=${SEMVER}"
+            echo "display=${DISPLAY}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing ${DISPLAY} (semver ${SEMVER}, tag ${TAG})"
+
+      # Runner workspace only, never committed: in Tauri 2 the conf version
+      # overrides Cargo's for the bundle, Info.plist, and package_info(), so
+      # this is the only file that needs the real version.
+      - name: Patch tauri.conf.json version
+        run: |
+          set -euo pipefail
+          jq --arg v "${{ steps.ver.outputs.semver }}" '.version = $v' \
+            src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
+          mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+          jq -r '.version' src-tauri/tauri.conf.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Caches dependency build outputs under target/ — including the
+      # whisper.cpp/llama.cpp cmake artifacts in the -sys crates' OUT_DIRs,
+      # which are the expensive part. Workspace crates rebuild every run
+      # (rust-cache evicts them), which is what we want.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+          cache-on-failure: true # a failed notarization must not cost the C++ cache
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # cmake is preinstalled on GitHub macOS images; guard just in case.
+      - name: Ensure cmake
+        run: cmake --version || brew install cmake
+
+      - name: Install tauri CLI
+        run: npm ci
+
+      # The Tauri 2 bundler imports APPLE_CERTIFICATE into a temporary
+      # keychain, signs the .app, notarizes it (waits), and staples it.
+      # TAURI_SIGNING_PRIVATE_KEY makes it also emit the updater payload
+      # (Scriva.app.tar.gz + .sig) because createUpdaterArtifacts is on.
+      - name: Build, sign, and notarize the .app
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: npm run tauri build
+
+      # Exact filenames double as a gate that the version patch took effect:
+      # the bundler derives the dmg name from tauri.conf.json's version. A
+      # missing .sig catches a missing TAURI_SIGNING_PRIVATE_KEY secret.
+      - name: Locate build artifacts
+        id: art
+        run: |
+          set -euo pipefail
+          SEMVER="${{ steps.ver.outputs.semver }}"
+          DMG="target/release/bundle/dmg/Scriva_${SEMVER}_aarch64.dmg"
+          TARBALL="target/release/bundle/macos/Scriva.app.tar.gz"
+          SIG="${TARBALL}.sig"
+          for f in "$DMG" "$TARBALL" "$SIG"; do
+            [ -f "$f" ] || { echo "::error::missing artifact: $f"; ls -R target/release/bundle; exit 1; }
+          done
+          {
+            echo "dmg=${DMG}"
+            echo "tarball=${TARBALL}"
+            echo "sig=${SIG}"
+          } >> "$GITHUB_OUTPUT"
+
+      # Tauri notarizes the .app but NOT the .dmg (see CLAUDE.md). Without
+      # this, Gatekeeper flags the download as "Unnotarized Developer ID".
+      # No auto-retry: --wait polls; a hard failure (Apple outage or an
+      # Invalid verdict) should fail loudly — re-run the job, or check
+      # `xcrun notarytool log` locally if it was a verdict.
+      - name: Notarize + staple the dmg
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool submit "${{ steps.art.outputs.dmg }}" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 45m
+          xcrun stapler staple "${{ steps.art.outputs.dmg }}"
+
+      - name: Gatekeeper gate — refuse to publish a rejected dmg
+        run: |
+          set -euo pipefail
+          OUT="$(spctl -a -vv -t install "${{ steps.art.outputs.dmg }}" 2>&1)" || {
+            echo "$OUT"; echo "::error::spctl rejected the dmg"; exit 1;
+          }
+          echo "$OUT"
+          echo "$OUT" | grep -q "Notarized Developer ID" || {
+            echo "::error::dmg is not 'Notarized Developer ID'"; exit 1;
+          }
+
+      - name: Stage release assets + generate latest.json
+        run: |
+          set -euo pipefail
+          SEMVER="${{ steps.ver.outputs.semver }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+          mkdir -p dist
+          cp "${{ steps.art.outputs.dmg }}"     "dist/Scriva_${SEMVER}_aarch64.dmg"
+          cp "${{ steps.art.outputs.dmg }}"     "dist/Scriva-macOS.dmg" # stable landing-page URL
+          cp "${{ steps.art.outputs.tarball }}" "dist/Scriva_${SEMVER}_aarch64.app.tar.gz"
+          cp "${{ steps.art.outputs.sig }}"     "dist/Scriva_${SEMVER}_aarch64.app.tar.gz.sig"
+          jq -n \
+            --arg version "$SEMVER" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --rawfile sig "${{ steps.art.outputs.sig }}" \
+            --arg url "https://github.com/${{ github.repository }}/releases/download/${TAG}/Scriva_${SEMVER}_aarch64.app.tar.gz" \
+            '{version: $version, pub_date: $pub_date,
+              platforms: {"darwin-aarch64": {signature: $sig, url: $url}}}' \
+            > dist/latest.json
+          # Gate: the manifest signature must byte-match the .sig the updater verifies.
+          [ "$(jq -r '.platforms."darwin-aarch64".signature' dist/latest.json)" = \
+            "$(cat "${{ steps.art.outputs.sig }}")" ] || {
+            echo "::error::latest.json signature does not match the .sig file"; exit 1;
+          }
+          ls -l dist
+
+      # Draft first: a non-draft release becomes /latest BEFORE assets finish
+      # uploading, so an update check in that window would 404 on latest.json.
+      # Publishing the draft flips /latest atomically with all assets present.
+      - name: Publish release
+        if: github.ref == 'refs/heads/main' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.ver.outputs.tag }}"
+          gh release create "$TAG" \
+            --target "${{ github.sha }}" \
+            --title "Scriva ${{ steps.ver.outputs.display }}" \
+            --generate-notes \
+            --draft \
+            dist/*
+          gh release edit "$TAG" --draft=false
+          echo "Published https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+
+      # Dry runs (and dispatches from non-main refs) keep the assets
+      # inspectable without touching tags or releases.
+      - name: Upload assets as workflow artifact (dry run)
+        if: github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.dry_run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scriva-${{ steps.ver.outputs.tag }}-dry-run
+          path: dist/

@@ -96,7 +96,35 @@ Then:
 Optional: copy `.env.example` to `.env` for dev-only key overrides (never
 committed, debug builds only).
 
-## Building a release (maintainers)
+## Releasing (maintainers)
+
+**Releases are automated.** Every merge to `main` triggers the Release
+workflow (`.github/workflows/release.yml`) on a macOS runner: it builds,
+signs, notarizes (the `.app` *and* the `.dmg`), and publishes a GitHub
+release with all five assets — the versioned dmg, the stable-named
+`Scriva-macOS.dmg` the landing page links to, the updater payload
+(`.app.tar.gz` + `.sig`), and the `latest.json` manifest the in-app updater
+fetches. Nothing to do by hand.
+
+- **Versioning is calendar-based**: tag `v<yyyymmdd>` (UTC), internal semver
+  `<yyyymmdd>.0.0`; a second release the same day becomes `v<yyyymmdd>.1` /
+  `<yyyymmdd>.1.0`. The version is computed in the workflow — the checked-in
+  `0.1.0` strings are placeholders and never bumped.
+- **Doc-only change?** Put `[skip release]` in the PR title (it lands in the
+  squash-merge commit message). Don't use `[skip ci]` — that skips tests too.
+- **Re-run / test**: Actions → Release → Run workflow; the `dry_run` input
+  builds and gates everything but uploads the assets as a workflow artifact
+  instead of publishing.
+- The workflow needs seven repo secrets: `APPLE_CERTIFICATE` (base64 .p12),
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
+  `APPLE_PASSWORD` (app-specific), `APPLE_TEAM_ID`,
+  `TAURI_SIGNING_PRIVATE_KEY` (the minisign key; its password is hardcoded
+  empty in the workflow).
+
+### Manual fallback
+
+The by-hand procedure below is disaster recovery (and documents what the
+workflow automates).
 
 ```sh
 cd <repo root>
@@ -159,10 +187,13 @@ The signing keypair lives outside the repo (never commit it):
 - Public key: already baked into `src-tauri/tauri.conf.json`
   (`plugins.updater.pubkey`). Only rotate it in lockstep with the private key.
 
-Per release (assuming `TAURI_SIGNING_PRIVATE_KEY*` were set at build time, so
-the `.sig` exists):
+Per release, the Release workflow does all of this automatically. If ever
+releasing by hand (assuming `TAURI_SIGNING_PRIVATE_KEY*` were set at build
+time, so the `.sig` exists):
 
-1. Bump `version` in `src-tauri/tauri.conf.json` before building.
+1. The workflow computes the calver version and patches
+   `src-tauri/tauri.conf.json` in its own workspace; by hand, set it yourself
+   before building.
 2. Upload these to the GitHub release, alongside the notarized `.dmg`:
    - `Scriva.app.tar.gz` — rename to a versioned asset, e.g.
      `Scriva_<version>_aarch64.app.tar.gz`.
@@ -174,12 +205,12 @@ the `.sig` exists):
 
 ```json
 {
-  "version": "0.2.0",
+  "version": "20260716.0.0",
   "pub_date": "2026-07-16T00:00:00Z",
   "platforms": {
     "darwin-aarch64": {
       "signature": "<paste the full contents of Scriva.app.tar.gz.sig>",
-      "url": "https://github.com/soltankara/scriva/releases/download/v0.2.0/Scriva_0.2.0_aarch64.app.tar.gz"
+      "url": "https://github.com/soltankara/scriva/releases/download/v20260716/Scriva_20260716.0.0_aarch64.app.tar.gz"
     }
   }
 }

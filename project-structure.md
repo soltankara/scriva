@@ -22,8 +22,14 @@ scriva/
 ├── SECURITY.md                      # Private vulnerability reporting policy (GitHub Security tab)
 ├── .github/
 │   ├── workflows/
-│   │   └── ci.yml                   # CI: fmt check + scriva-core check/test on ubuntu;
-│   │                                #   fails if AppleDouble ._* files are tracked
+│   │   ├── ci.yml                   # CI: fmt check + scriva-core check/test on ubuntu;
+│   │   │                            #   fails if AppleDouble ._* files are tracked
+│   │   └── release.yml              # Auto release on every merge to main (macos runner):
+│   │                                #   build/sign/notarize (.app + .dmg, spctl gate),
+│   │                                #   publish calver-tagged release (v<yyyymmdd>[.N])
+│   │                                #   with dmg + Scriva-macOS.dmg + updater payload +
+│   │                                #   latest.json. "[skip release]" in PR title opts out;
+│   │                                #   workflow_dispatch dry_run for testing.
 │   ├── ISSUE_TEMPLATE/
 │   │   ├── bug_report.md            # Bug template (macOS/app version, provider, permissions)
 │   │   └── feature_request.md       # Feature template (points to roadmap + provider guide)
@@ -56,9 +62,9 @@ scriva/
 │                                    #   GitHub Pages (main branch, /docs) at
 │                                    #   https://soltankara.github.io/scriva/. Download CTAs
 │                                    #   point at the version-stable release asset
-│                                    #   releases/latest/download/Scriva-macOS.dmg (upload a
-│                                    #   stably-named dmg copy alongside the versioned one on
-│                                    #   every release).
+│                                    #   releases/latest/download/Scriva-macOS.dmg (the
+│                                    #   Release workflow uploads that stably-named copy
+│                                    #   automatically on every release).
 │
 ├── crates/
 │   └── scriva-core/              # ── THE ENGINE (platform-independent) ──
